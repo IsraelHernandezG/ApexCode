@@ -1,0 +1,639 @@
+/*****************************************************************************************************************
+Version : 1.0
+Created Date : 2020-01-22
+Class Name : ADM_FirmaCartasFAD 
+Test Class : ADM_FirmaCartasFAD_Test
+*-----------------------------------------------------------------------------------------------------------------
+*          Developer                    Date                    Description                    Changes
+*-----------------------------------------------------------------------------------------------------------------
+*        Israel Hernández            2020-01-22               Original Version               -------------
+*****************************************************************************************************************/
+public class Queueable_WS_FAD implements Queueable, Database.AllowsCallouts{
+
+    private String idDocumentoPDF;
+    private String iddocReqAdm;
+    private String tipoRequisito;
+    private String error;
+    private List<WrapperFAD.firmaDocumento> firmasInsertar;
+    private List<SObject> firmasDocumentToUpdate;
+    private WrapperFAD.paqueteDocumento nuevoPaquete;
+    private ADM_Documento_requisito_admision__c docReqAdm;
+    // private ADM_Documento_requisito_beca__c docReqBeca;
+    private List<ADM_Documento_requisito_admision__c> documentosActivosAdm;
+    // private List<ADM_Documento_requisito_beca__c> documentosActivosBeca;
+    private static final String API_NAME_METADATA = 'FAD';
+    private Map<String, ADM_Documento_requisito_admision__c> mapRequisitionIds;
+    private static final String TYPE_DOC_FAD = 'Documento FAD';
+    private static final String TYPE_ADM_LETTER = 'Carta de admisión';
+    private static final String STATUS_ERROR = 'Error de Envío';
+    private static final String HEADER_AUTH = 'Authorization';
+    private static final String HEADER_AUTH_VALUE = 'Bearer ';
+    private static final String HEADER_CT = 'Content-Type';
+    private static final String HEADER_CT_VALUE = 'application/json';
+    private static final String FIELD_TICKET = 'ADM_Ticket__c';
+    private static final String FIELD_ORDER = 'ADM_Orden__c';
+    private static final String FIELD_STATUS_FAD = 'ADM_Estatus_FAD__c';
+    private static final String FIELD_SEND_DATE = 'ADM_Fecha_envio_FAD__c';
+    private static final String FIELD_URL = 'ADM_URL_FAD__c';
+    private static final String FIELD_VECTOR = 'ADM_Vector__c';
+    private static final String FIELD_KEY = 'ADM_Llave__c';
+    private static final String FIELD_REQUISITION = 'ADM_Requisicion__c';
+    private static final String FIELD_XML = 'ADM_XML_FAD__c';
+    private static final String FIELD_ACCEPTANCE_VIDEO = 'ADM_Video_aceptacion__c';
+    private static final String METHOD_POST = 'POST';
+    private static final String HEADER_ADD_CLIENT_ID = 'addIdClient';
+    private static final String HEADER_ADD_CLIENT_ID_VALUE = 'true';
+    private static final Integer STATUS_CODE = 200;
+    private static final String EN_SIGNED = 'SIGNED';
+    private static final String EN_PENDING = 'PENDING';
+    private static final String EN_CANCELLED = 'CANCELLED';
+    private static final String EN_EXPIRED = 'EXPIRED';
+    private static final String EN_REJECTED = 'REJECTED';
+    private static final String ES_SIGNED = 'Firmado';
+    private static final String ES_PENDING = 'Pendiente';
+    private static final String ES_CANCELLED = 'Cancelado';
+    private static final String ES_EXPIRED = 'Expirado';
+    private static final String ES_REJECTED = 'Rechazado';
+    private static final String METHOD_GET = 'GET';
+    private static final String ERROR_TYPE = 'API FAD';
+    private static final String ERROR_TEXT = 'Ocurrió un error con el servicio, informe a su administrador y proporcione los '
+    + 'siguientes detalles: ' + '\n';
+    private static final String ERROR_APEX_CLASS = 'Apex Class: Queueable_WS_FAD Message: ';
+    private static final String STR_ADMISION = 'Admisiones';
+    private static final String MSG_CODE = ' updateSolicitud';
+    private static final String TYPE_LETTER_COMMITMENT = 'Carta compromiso';
+    private static final String DOCUMENT_TYPE_CARTA_SIG_PASOS = 'AB_Carta_siguientes_pasos';
+
+    public Queueable_WS_FAD(id idDocumentoPDF, id iddocReqAdm, List<WrapperFAD.firmaDocumento> firmasInsertar, 
+        List<SObject> firmasDocumentToUpdate, WrapperFAD.paqueteDocumento nuevoPaquete, String TipoRequisito) {
+
+        this.idDocumentoPDF = idDocumentoPDF;
+        this.iddocReqAdm = iddocReqAdm;
+        this.firmasInsertar = firmasInsertar;
+        this.nuevoPaquete = nuevoPaquete;
+        this.firmasDocumentToUpdate = firmasDocumentToUpdate;
+        this.tipoRequisito = TipoRequisito;
+    }
+    
+    public Queueable_WS_FAD(String error, ADM_Documento_requisito_admision__c docReqAdm) {
+        this.error = error;
+        this.docReqAdm = docReqAdm;
+    }
+    
+   /*  public Queueable_WS_FAD(String error, ADM_Documento_requisito_beca__c docReqBeca) {
+        this.error = error;
+        this.docReqBeca = docReqBeca;
+    } */
+    
+    public Queueable_WS_FAD(List<ADM_Documento_requisito_admision__c> documentosActivosAdm){
+        this.documentosActivosAdm = documentosActivosAdm;
+        this.tipoRequisito = TYPE_DOC_FAD;
+    }
+    
+    /* public Queueable_WS_FAD(List<ADM_Documento_requisito_beca__c> documentosActivosBeca){
+        this.documentosActivosBeca = documentosActivosBeca;
+        this.tipoRequisito = 'Documento FAD';
+    } */
+    
+    public Queueable_WS_FAD(List<ADM_Documento_requisito_admision__c> documentosActivosAdm, String TipoRequisito){
+        this.documentosActivosAdm = documentosActivosAdm;
+        this.tipoRequisito = TipoRequisito;
+    }
+    
+   /*  public Queueable_WS_FAD(List<ADM_Documento_requisito_beca__c> documentosActivosBeca, String TipoRequisito){
+        this.documentosActivosBeca = documentosActivosBeca;
+        this.tipoRequisito = TipoRequisito;
+    } */
+
+    public Queueable_WS_FAD(Map<String, ADM_Documento_requisito_admision__c> mapRequisitionIdsCtx) {
+        this.mapRequisitionIds = mapRequisitionIdsCtx;
+        this.tipoRequisito = TYPE_ADM_LETTER;
+    }
+    
+    public void execute(QueueableContext context) {
+        if(error!=null && error!=''){
+            if(docReqAdm!=null){
+                docReqAdm.ADM_Estatus_FAD__c = STATUS_ERROR;
+                docReqAdm.ADM_XML_FAD__c = error;
+                update docReqAdm;
+            }/* else if(docReqBeca!=null){
+                docReqBeca.ADM_Estatus_FAD__c = 'Error de Envío';
+                docReqBeca.ADM_XML_FAD__c = error;
+                update docReqBeca;
+            }  */
+        }else{
+            //execute the login
+            ADM_Call_FAD_WS.TokenResponse token = ADM_Call_FAD_WS.loginFad(tipoRequisito);
+            Credenciales_FAD__mdt credencialesFAD = Credenciales_FAD__mdt.getInstance(API_NAME_METADATA);
+
+            if (idDocumentoPDF != null && firmasDocumentToUpdate.size() != 0) {
+                sendRequisition(token, nuevoPaquete, idDocumentoPDF, firmasInsertar, firmasDocumentToUpdate, iddocReqAdm);
+            }
+
+            if (documentosActivosAdm != null) {
+                checkStatusByIds(credencialesFAD, token, documentosActivosAdm);
+            }
+            
+            if (mapRequisitionIds != null) {
+                checkDetailsStatus(credencialesFAD, token, mapRequisitionIds);
+            }
+
+            /* if (documentosActivosBeca!=null)  {
+                checkStatusBecas(credencialesFAD, token, documentosActivosBeca);
+            } */
+        }
+    }
+    
+    public static fadResponse procesaResultados(String responseBody) {
+        System.debug('Deserializar el json');
+        fadResponse respBody = (fadResponse) JSON.deserialize(responseBody, fadResponse.class);
+        return respBody;
+    }
+     
+    public class signersFAD {
+        public String signerName;
+        public Integer order;
+        public Boolean signed;
+    }
+    
+    public class dataFAD {
+        public String idRequisitionClient;
+        public String contractName;
+        public Integer currentVersion;
+        public String dateContractRequisition;
+        public String idCompany;
+        public String nameCompany;
+        public String idRequisition;
+        public String ownerName;
+        public String validity;
+        public String acceptanceLegend;
+        public String idDocument;
+        public List<signersFAD> signers;
+        public String status;
+    }
+      
+	public class fadResponse {
+        public Boolean success;
+        public String error;
+        public String code;
+        public dataFAD data;
+    }
+
+    public class ResponseWrapper {
+        public Boolean success;
+        public String error;
+        public String code;
+        public List<DataWrapper> data;
+    }
+
+    public class DataWrapper {
+        public String id;
+        public String idRequisitionClient;
+        public String status;
+    }
+    
+    private static HttpRequest generateRequest(String endpoint, String metodo, String token, String bodyStr) {
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod(metodo);
+        req.setHeader(HEADER_AUTH, HEADER_AUTH_VALUE + token);
+        req.setHeader(HEADER_CT, HEADER_CT_VALUE);
+
+        System.debug('::: Request - Body ::: ' + bodyStr);
+        if (String.isNotBlank(bodyStr)) {
+            req.setBody(bodyStr);
+        }
+
+        return req;
+    }
+
+    private static void sendRequisition(ADM_Call_FAD_WS.TokenResponse token, WrapperFAD.paqueteDocumento nuevoPaquete, 
+        String idDocumentoPDF, List<WrapperFAD.firmaDocumento> firmasInsertar, List<SObject> firmasDocumentToUpdate, 
+        Id iddocReqAdm) {
+
+        // send the pdf   
+        System.debug('Entra Call_FAD_WS');
+        nuevoPaquete = ADM_Call_FAD_WS.sendFad(idDocumentoPDF, token, firmasInsertar, nuevoPaquete);
+        //update firmas documento 
+        //Comprobar si es admision o becas
+
+        if (nuevoPaquete.signersTickets != null) {
+            for (SObject sObj : firmasDocumentToUpdate) {
+                sObj.put(FIELD_TICKET, nuevoPaquete.signersTickets.get(String.valueof(sObj.get(FIELD_ORDER))));
+            }
+
+            update firmasDocumentToUpdate;
+        }
+
+        if  (String.isNotBlank(iddocReqAdm)) {
+            SObject sObj = iddocReqAdm.getSobjectType().newSObject(iddocReqAdm);
+            sObj.put(FIELD_STATUS_FAD, nuevoPaquete.Estatus);
+            sObj.put(FIELD_SEND_DATE, datetime.now());
+            sObj.put(FIELD_TICKET, nuevoPaquete.ticket);
+            sObj.put(FIELD_URL, nuevoPaquete.Url);
+            sObj.put(FIELD_VECTOR, nuevoPaquete.Vector);
+            sObj.put(FIELD_KEY, nuevoPaquete.Key);
+            sObj.put(FIELD_REQUISITION, nuevoPaquete.requisitionId);
+            sObj.put(FIELD_XML, nuevoPaquete.XmlCompleto);
+            sObj.put(FIELD_ACCEPTANCE_VIDEO, !(Boolean.valueOf(nuevoPaquete.Omitir_video_acuerdo)));
+    
+            update sObj;
+        }
+    }
+
+    private static void checkStatusByIds(Credenciales_FAD__mdt credencialesFAD,  ADM_Call_FAD_WS.TokenResponse token, 
+        List<ADM_Documento_requisito_admision__c> documentosActivosAdm) {
+
+        Map<String, ADM_Documento_requisito_admision__c> mapReqIds = new Map<String, ADM_Documento_requisito_admision__c>();
+        List<ADM_Documento_requisito_admision__c> lstDocResAdmUp = new List<ADM_Documento_requisito_admision__c>();
+        Map<String, AB_Consultar_Detalle_Estatus_FAD__mdt> mapEstatusMdt = AB_Consultar_Detalle_Estatus_FAD__mdt.getAll();
+
+        for (ADM_Documento_requisito_admision__c doc : documentosActivosAdm) {
+            mapReqIds.put(doc.ADM_Requisicion__c, doc);
+        }
+
+        System.debug('::: Lista Requistion Ids ::: '  + mapReqIds.keySet());
+        String endpoint = credencialesFAD.AB_URL_Status_By_Requisition_Ids__c;
+        String tokenStr = token.access_token;
+        String bodyStr = JSON.serialize(mapReqIds.keySet());
+        HttpRequest req = generateRequest(endpoint, METHOD_POST, tokenStr, bodyStr);
+        req.setHeader(HEADER_ADD_CLIENT_ID, HEADER_ADD_CLIENT_ID_VALUE);
+        Http http = new Http();
+        HTTPResponse res = http.send(req);
+
+        ResponseWrapper resWpr = (res.getStatusCode() == STATUS_CODE) 
+            ? (ResponseWrapper) JSON.deserialize(res.getBody(), ResponseWrapper.class)
+            : null;
+        System.debug('::: Response ::: ' + resWpr);
+
+        Set<Id> setIdsRequisitions = new Set<Id>();
+        Set<Id> setIdSolicitudes = new Set<Id>();
+        Set<Id> setIdSolicitudesLetters = new Set<Id>();
+        Map<String, Set<Id>> mapSetIdSolicitudes = new Map<String, Set<Id>>();
+
+        if (resWpr != null && resWpr.success == true) {
+            Datetime horaConsulta = Datetime.now();
+
+            for (DataWrapper dataWpr : resWpr.data) {
+                String estatusFAD = dataWpr.status;
+                ADM_Documento_requisito_admision__c doc = mapReqIds.get(dataWpr.Id);
+                if (doc == null) {
+                    continue;
+                }
+                System.debug('ADM_Documento_requisito_admision__c *** ' +  doc);
+                doc.ADM_Consulta_de_estatus__c = false;
+                doc.ADM_Ultima_consulta_FAD__c = horaConsulta;
+                doc.ADM_ID_Requisicion_FAD__c = dataWpr.idRequisitionClient;
+
+                if (estatusFAD.equals(EN_SIGNED)) {    
+                    doc.ADM_Estatus_FAD__c = ES_SIGNED;
+                    doc.ADM_Entregado__c = true;
+                    setIdsRequisitions.add(doc.Id);
+                    // setIdSolicitudes.add(doc.ADM_Solicitud__c);
+                    lstDocResAdmUp.add(doc);
+
+                    if (doc.ADM_Tipo_requisito__c.equals(TYPE_DOC_FAD)) {
+                        setIdSolicitudes.add(doc.Id);
+                    } else {
+                        setIdSolicitudesLetters.add(doc.Id);
+                    }
+
+                    if (String.isBlank(doc.ADM_ID_Requisicion_FAD__c)) {
+                        AB_Consultar_Detalle_Estatus_FAD__mdt mdtCE = AB_Consultar_Detalle_Estatus_FAD__mdt.getInstance(ES_SIGNED);
+
+                        if (mdtCE == null || (mdtCE != null && mdtCE.AB_Activo__c == false)) {
+                            mapReqIds.remove(dataWpr.Id);
+                        }
+                    }
+                    
+                } else {
+
+                    for (AB_Consultar_Detalle_Estatus_FAD__mdt cDEMdt : mapEstatusMdt.values()) {
+                        if (estatusFAD.equals(cDEMdt.AB_Estatus__c) && cDEMdt.AB_Activo__c == false) {
+                            String estatus = '';
+                            if (estatusFAD.equals(EN_SIGNED)) {
+                                estatus = ES_SIGNED;
+                            }
+
+                            if (estatusFAD.equals(EN_PENDING)) {
+                                estatus = ES_PENDING;
+                            }
+
+                            if (estatusFAD.equals(EN_CANCELLED)) {
+                                estatus = ES_CANCELLED;
+                            }
+
+                            if (estatusFAD.equals(EN_EXPIRED)) {
+                                estatus = ES_EXPIRED;
+                            }
+
+                            if (estatusFAD.equals(EN_REJECTED)) {
+                                estatus = ES_REJECTED;
+                            }
+
+                            doc.ADM_Estatus_FAD__c = estatus;
+                            // VALIDAR SI ESTE CAMPO SE PUEDE LLENAR DESDE CUANDO SE LLENA EL ID DE REQUISITION
+                            // doc.ADM_ID_Requisicion_FAD__c = resultados.idRequisitionClient;
+                            doc.ADM_Entregado__c = false;
+                            lstDocResAdmUp.add(doc);
+                            mapReqIds.remove(dataWpr.Id);
+                        }
+                    }
+                }
+            }
+            
+            mapSetIdSolicitudes.put(TYPE_DOC_FAD, setIdSolicitudes);
+            mapSetIdSolicitudes.put(TYPE_LETTER_COMMITMENT, setIdSolicitudesLetters);
+        }
+               
+        if (!lstDocResAdmUp.isEmpty()) {
+            update lstDocResAdmUp;
+            System.debug('Documentos y Requisitos Actualizados');
+        }
+        
+        if (!setIdsRequisitions.isEmpty()) {
+            List<ADM_Firma_documento_admision__c> firmasUpdate = new List<ADM_Firma_documento_admision__c>();
+            //obtener las Firmas del documento de admisión
+            for (ADM_Firma_documento_admision__c firmaDoc : [SELECT Id, ADM_Orden__c, ADM_Requisito__c FROM 
+                ADM_Firma_documento_admision__c WHERE ADM_Requisito__c IN :setIdsRequisitions]) {
+
+                firmaDoc.ADM_Firmado__c = true;
+                firmasUpdate.add(firmaDoc);
+            }
+
+            update firmasUpdate;
+            System.debug('Firmas de Documentos ADM Actualizadas');
+        }
+
+        // if (!mapSetIdSolicitudes.isEmpty()) {
+            // updateSolicitud(setIdSolicitudes);
+            updateSolicitud(mapSetIdSolicitudes);
+        // }
+
+        if (!mapReqIds.isEmpty()) {
+            System.debug('::: Consultar Detalle ::: ' + mapReqIds.keySet());
+            Integer delayInMin = String.isNotBlank(Label.AB_TiempoDemoraColaEstatusFAD) 
+                ? Integer.valueOf(Label.AB_TiempoDemoraColaEstatusFAD)
+                : 1;
+            if (!Test.isRunningTest()) {
+                Queueable_WS_FAD fadDetails = new Queueable_WS_FAD(mapReqIds);
+                System.enqueueJob(fadDetails, delayInMin);
+            }
+        }
+    }
+
+    private static void checkDetailsStatus(Credenciales_FAD__mdt credencialesFAD,  ADM_Call_FAD_WS.TokenResponse token, 
+        Map<String, ADM_Documento_requisito_admision__c> mapRequisitionIds) {
+
+        Map<Id, dataFAD> firmasXDocumento = new Map<Id, dataFAD>();
+        String tokenStr = token.access_token;
+        Set<Id> setIdSolicitudes = new Set<Id>();
+        Set<Id> setIdSolicitudesLetters = new Set<Id>();
+        Map<String, Set<Id>> mapSetIdSolicitudes = new Map<String, Set<Id>>();
+
+        for (String idReq : mapRequisitionIds.keySet()) {
+            HttpRequest req = generateRequest(credencialesFAD.URL_Requisitions_Info__c + idReq, METHOD_GET, tokenStr, null);
+            Http http = new Http();
+            HTTPResponse res = http.send(req);
+            Datetime horaConsulta = Datetime.now();
+            System.debug('HTTPResponse res ' + res);
+            fadResponse responseWrp = procesaResultados(res.getBody());
+            System.debug('dataFAD resultados :: '+ responseWrp);
+            if (responseWrp.success == true) {
+                dataFAD resultados = responseWrp.data;
+                ADM_Documento_requisito_admision__c doc = mapRequisitionIds.get(idReq);
+                //Actualiza registros
+                String estatus = '';
+                if (resultados.status.equals(EN_SIGNED)) {
+                    estatus = ES_SIGNED;
+                }
+
+                if (resultados.status.equals(EN_PENDING)) {
+                    estatus = ES_PENDING;
+                }
+
+                if (resultados.status.equals(EN_CANCELLED)) {
+                    estatus = ES_CANCELLED;
+                }
+
+                if (resultados.status.equals(EN_EXPIRED)) {
+                    estatus = ES_EXPIRED;
+                }
+
+                if (resultados.status.equals(EN_REJECTED)) {
+                    estatus = ES_REJECTED;
+                }
+                //Actualizar el Documento y requisito de admisión
+                doc.ADM_Consulta_de_estatus__c = false;
+                doc.ADM_Ultima_consulta_FAD__c = horaConsulta;
+                doc.ADM_Estatus_FAD__c = estatus;
+                doc.ADM_ID_Requisicion_FAD__c = resultados.idRequisitionClient;
+                if (estatus != ES_SIGNED) {
+                    doc.ADM_Entregado__c = false;
+                } else {
+                    doc.ADM_Entregado__c = true;
+                    // setIdSolicitudes.add(doc.ADM_Solicitud__c);
+                    if (doc.ADM_Tipo_requisito__c.equals(TYPE_DOC_FAD)) {
+                        setIdSolicitudes.add(doc.Id);
+                    } else {
+                        setIdSolicitudesLetters.add(doc.Id);
+                    }
+                }
+                //guardar en un Mapa los resultados
+                firmasXDocumento.put(doc.id, resultados);
+            }
+
+            mapSetIdSolicitudes.put(TYPE_DOC_FAD, setIdSolicitudes);
+            mapSetIdSolicitudes.put(TYPE_LETTER_COMMITMENT, setIdSolicitudesLetters);
+        }
+              
+        update mapRequisitionIds.values();
+        System.debug('Documentos y Requisitos Actualizados');
+        System.debug('firmasXDocumento :: ' + firmasXDocumento);
+        List<ADM_Firma_documento_admision__c> firmasUpdate = new List<ADM_Firma_documento_admision__c>();
+        //obtener las Firmas del documento de admisión
+        for (ADM_Firma_documento_admision__c firmaDoc : [SELECT Id, ADM_Orden__c, ADM_Requisito__c FROM 
+            ADM_Firma_documento_admision__c WHERE ADM_Requisito__c IN :firmasXDocumento.keySet()]) {
+            //segun su orden, actualizar el check firmado
+            //Cuando el estatus en el doc es cancelado no se regresa una lista de firmantes
+            if (firmasXDocumento.get(firmaDoc.ADM_Requisito__c).signers != null) {
+                List<signersFAD> firmantes = firmasXDocumento.get(firmaDoc.ADM_Requisito__c).signers;
+                for (signersFAD firmante : firmantes) {
+                    if (firmante.order == Integer.valueOf(firmaDoc.ADM_Orden__c)) {
+                        firmaDoc.ADM_Firmado__c = firmante.signed;
+                    }
+                }
+
+                firmasUpdate.add(firmaDoc);
+            }
+        }
+
+        update firmasUpdate;
+        System.debug('Firmas de Documentos ADM Actualizadas');
+
+        // updateSolicitud(setIdSolicitudes);
+        updateSolicitud(mapSetIdSolicitudes);
+    }
+
+    /* private static void checkStatusBecas(Credenciales_FAD__mdt credencialesFAD,  ADM_Call_FAD_WS.TokenResponse token, 
+        List<ADM_Documento_requisito_beca__c> documentosActivosBeca)  {
+
+        Map<id,dataFAD> firmasXDocumento = new Map<id,dataFAD>();   
+        for (ADM_Documento_requisito_beca__c doc : documentosActivosBeca) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(credencialesFAD.URL_Requisitions_Info__c + doc.ADM_Requisicion__c);
+            req.setMethod('GET');
+            //save token in a variable
+            String tokenString = token.access_token;
+            req.setHeader('Authorization','Bearer ' + tokenString);
+            req.setHeader('Content-Type','application/json');
+            System.debug('HttpRequest req ' + req);
+            //http callout
+            Http http = new Http();
+            HTTPResponse res = http.send(req);
+            Datetime horaConsulta = Datetime.now();
+            System.debug('HTTPResponse res ' + res);
+            //procesa JSON
+            fadResponse responseWrp = procesaResultados(res.getBody());
+            System.debug('dataFAD resultados :: '+ responseWrp);
+            System.debug('doc Beca :: '+doc);
+            if (responseWrp.success == true) {
+                dataFAD resultados = responseWrp.data;
+                //Actualiza registros
+                String estatus = '';
+                switch on resultados.status {
+                    when 'PENDING' {estatus = 'Pendiente';}
+                    when 'SIGNED' {estatus = 'Firmado';}
+                    when 'CANCELLED' {estatus = 'Cancelado';}
+                    when 'EXPIRED' {estatus = 'Expirado';}
+                    when 'REJECTED' { estatus = 'Rechazado';}
+                }
+                //Actualizar el Documento y requisito de admisión
+                doc.ADM_Consulta_de_estatus__c = false;
+                doc.ADM_Ultima_consulta_FAD__c = horaConsulta;
+                doc.ADM_Estatus_FAD__c = estatus;
+                doc.ADM_ID_Requisicion_FAD__c = resultados.idRequisitionClient;
+                if (estatus!='Firmado') {
+                    doc.ADM_Entregado__c = false;
+                } else {
+                    doc.ADM_Entregado__c = true;
+                }
+                //guardar en un Mapa los resultados
+                firmasXDocumento.put(doc.id,resultados);
+            }
+            //else genera log de errores
+        }
+
+        update documentosActivosBeca;
+
+        System.debug('firmasXDocumento :: '+firmasXDocumento);
+        System.debug('Documentos y Requisitos Actualizados');
+        List<ADM_Firma_documento_beca__c> firmasUpdate = new List<ADM_Firma_documento_beca__c>();
+        //obtener las Firmas del documento de admisión
+        for (ADM_Firma_documento_beca__c firmaDoc : [SELECT ID,ADM_Orden__c,ADM_Requisito__c FROM ADM_Firma_documento_beca__c 
+            WHERE ADM_Requisito__c in: firmasXDocumento.keySet()]) {
+            //segun su orden, actualizar el check firmado
+            //Cuando el estatus en el doc es cancelado no se regresa una lista de firmantes
+            if (firmasXDocumento.get(firmaDoc.ADM_Requisito__c).signers != null) { 
+                List<signersFAD> firmantes = firmasXDocumento.get(firmaDoc.ADM_Requisito__c).signers;
+                for (signersFAD firmante : firmantes) {
+                    if (firmante.order == Integer.valueOf(firmaDoc.ADM_Orden__c)) {
+                        firmaDoc.ADM_Firmado__c = firmante.signed;
+                    }
+                }
+
+                firmasUpdate.add(firmaDoc);                                               
+            }
+        }
+
+        update firmasUpdate;
+        System.debug('Firmas de Documentos becas Actualizadas');
+    } */
+
+    // private static void updateSolicitud(Set<Id> setIdSolicitudes) {
+    private static void updateSolicitud(Map<String, Set<Id>> mapSetsIdSolicitudes) {
+
+        Set<Id> setIdSolicitudes = new Set<Id>();
+        Boolean iterarTypeFad = false;
+        Boolean iterarTypeLetter = false;
+        if (mapSetsIdSolicitudes.containsKey(TYPE_DOC_FAD) && !mapSetsIdSolicitudes.get(TYPE_DOC_FAD).isEmpty()) {
+
+            setIdSolicitudes.addAll(mapSetsIdSolicitudes.get(TYPE_DOC_FAD));
+            iterarTypeFad = true;
+        }
+        
+        if (mapSetsIdSolicitudes.containsKey(TYPE_LETTER_COMMITMENT) 
+            && !mapSetsIdSolicitudes.get(TYPE_LETTER_COMMITMENT).isEmpty()) {
+
+            setIdSolicitudes.addAll(mapSetsIdSolicitudes.get(TYPE_LETTER_COMMITMENT));
+            iterarTypeLetter = true;
+        }
+
+        Map<Id, hed__Application__c> mapSolicitudes = new Map<Id, hed__Application__c>([SELECT Id, AB_CartaAdmisionFirmada__c 
+        FROM hed__Application__c WHERE Id IN :setIdSolicitudes]);
+
+        // List<hed__Application__c> lstSolicitudes = new List<hed__Application__c>();
+        List<ATR_Log_Errores__c> lstLogErrors = new List<ATR_Log_Errores__c>();
+
+        /* for (hed__Application__c sol : [SELECT Id, AB_CartaAdmisionFirmada__c FROM hed__Application__c 
+            WHERE Id IN :setIdSolicitudes]) {
+            
+            sol.AB_CartaAdmisionFirmada__c = true;
+            lstSolicitudes.add(sol);
+        } */
+        
+        if (iterarTypeFad) {
+            for (Id idSol : mapSetsIdSolicitudes.get(TYPE_DOC_FAD)) {
+                if (mapSolicitudes.containsKey(idSol)) {
+                    mapSolicitudes.get(idSol).AB_CartaAdmisionFirmada__c = true;
+                }
+            }
+        }
+
+        if (iterarTypeLetter) {
+            for (Id idSol : mapSetsIdSolicitudes.get(TYPE_LETTER_COMMITMENT)) {
+                if (mapSolicitudes.containsKey(idSol)) {
+                    mapSolicitudes.get(idSol).AB_CartaAdmisionFirmada__c = true;
+                }
+            }
+
+            updateDCI(mapSetsIdSolicitudes.get(TYPE_LETTER_COMMITMENT));
+        }
+
+        // Database.SaveResult[] lstSr = Database.update(lstSolicitudes, false);
+        Database.SaveResult[] lstSr = Database.update(mapSolicitudes.values(), false);
+
+        for (Database.SaveResult sr : lstSr) {
+            if (!sr.isSuccess()) {
+                for (Database.Error err : sr.getErrors()) {
+                    ATR_Log_Errores__c errorLog = new ATR_Log_Errores__c();
+                    errorLog.Tipo_Programa__c = STR_ADMISION;
+                    errorLog.Fecha_de_Creacion_Integracion__c = System.today();
+                    errorLog.Error_Text__c = ERROR_TEXT + ERROR_APEX_CLASS + err.getMessage();
+                    errorLog.Message_Code__c = String.valueOf(err.getStatusCode()) + MSG_CODE;
+                    errorLog.Type__c = ERROR_TYPE;
+                    lstLogErrors.add(errorLog);
+                }
+            }
+        }
+
+        if (!lstLogErrors.isEmpty()) {
+            insert lstLogErrors;
+        }
+    }
+
+    private static void updateDCI(Set<Id> setIdsSolicitudes) {
+
+        List<DocumentChecklistItem> lstDCI = new List<DocumentChecklistItem>([SELECT Id, Status, DocumentTypeId, IsAccepted, 
+            ParentRecordId FROM DocumentChecklistItem WHERE ParentRecordId IN :setIdsSolicitudes 
+            AND DocumentType.DeveloperName = :DOCUMENT_TYPE_CARTA_SIG_PASOS]);
+
+        for (DocumentChecklistItem dci : lstDCI) {
+            dci.Status = 'Aceptado';
+            dci.IsAccepted = true;
+        }
+
+        update lstDCI;
+    }
+}
