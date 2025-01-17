@@ -1,0 +1,634 @@
+/************************************************************************************************************************************************************
+Created Date : 
+Class Name : ADM_GestorDePagoTransaction 
+Test Class : ADM_GestorPagoController_Test
+*------------------------------------------------------------------------------------------------------------------------------------------------------------
+*          Developer                    Date                    Description                    
+*------------------------------------------------------------------------------------------------------------------------------------------------------------
+*        Israel Hernández           1-07-2022                Original Version              
+* Jose Gpe. Pérez Márquez      9-11-2022    Se agrega parametro de forma de pago para la ficha de deposito en los métodos consultaPedidoAsinc, 
+*                          consultaPedido y ejecutarProcesoPago.
+*	Ramón Hernández Ramírez		  2024-03-19			  Modificaciones				Se comenta código de método 
+																							que no se utilizan.
+*------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************/
+public class ADM_GestorDePagoTransaction {
+	private static String MSG_ERROR_MATRICULA = 'No se encontro información para relacionar los folios de tienda: ';
+	private static String OPEN_PARENTHESIS = '(';
+	private static String CLOSE_PARENTHESIS = ')';
+	private static final String NOMBRE_LOG = 'wsTransaccionPago-Admisión';
+	private static final String ATR_LOG_TYPE_2 = 'Ws Transacción Pago - transaction error';
+	private static final String ERROR_TEXT =
+		'Ocurrió un error con el servicio, informe a su administrador y proporcione los siguientes detalles: \n' +
+		'{codMsg} \nfields: {errorField} ';
+	private static String REG_CODE_ERROR_REPLACE = '{codMsg}';
+	private static String REG_FIELDS_ERROR_REPLACE = '{errorField}';
+	private static final String STR_MSG = 'Message: ';
+
+	/**
+	 * Regresa Datos de los catalogos para la Transaccion
+	 * @param {pIdRequisito} Id del requisito
+	 */
+
+	/* @auraEnabled
+	public static ADM_Utility.DatosTransaccionWrapper buildDatosTransaccion(String pIdRequisito) {
+		ADM_Utility.DatosTransaccionWrapper datosTrWrapper = new ADM_Utility.DatosTransaccionWrapper();
+		//Obtener Documento y requisito ya sea de Adm o becas
+		//SObject objD = ADM_Utility.buscaDocumento(pIdRequisito);
+		//Schema.SObjectType schemaAdm = Schema.ADM_Documento_requisito_admision__c.getSObjectType();
+		//Schema.SObjectType schemaBeca = Schema.ADM_Documento_requisito_beca__c.getSObjectType();
+		String idSolicitante = '';
+		String idReqItem = '';
+		String idDoc = '';
+		datetime fechaC;
+		
+        if(objD != null && schemaAdm==objD.getSObjectType()) {
+            datosTrWrapper.requisitoAdm = (ADM_Documento_requisito_admision__c)objD;
+            idDoc = datosTrWrapper.requisitoAdm.ID;
+            idSolicitante = datosTrWrapper.requisitoAdm.ADM_Solicitante__c;
+            idReqItem = datosTrWrapper.requisitoAdm.ADM_Requisito__c;
+            datosTrWrapper.idTerm = datosTrWrapper.requisitoAdm.ADM_Solicitud__r.ADM_Configuracion_nivel_periodo__c;
+            datosTrWrapper.idConf = datosTrWrapper.requisitoAdm.ADM_Solicitud__r.ADM_Configuracion_de_oferta__c;
+            datosTrWrapper.CampusSede = ADM_Utility.buscaCampusAdm(datosTrWrapper.idConf, false);
+            datosTrWrapper.campus = ADM_Utility.buscaCampusAdm(datosTrWrapper.idConf, true);
+            fechaC = datosTrWrapper.requisitoAdm.ADM_Fecha_solicitud__c;
+        }else if(objD != null && schemaBeca==objD.getSObjectType()) {
+            datosTrWrapper.requisitoBeca = (ADM_Documento_requisito_beca__c)objD;
+            idDoc = datosTrWrapper.requisitoBeca.ID;
+            idSolicitante = datosTrWrapper.requisitoBeca.ADM_Solicitante__c;
+            idReqItem = datosTrWrapper.requisitoBeca.ADM_Requisito__c;
+            datosTrWrapper.idTerm = datosTrWrapper.requisitoBeca.ADM_Solicitud__r.ADM_Periodo__c;
+            datosTrWrapper.CampusSede = ADM_Utility.buscaCampus(datosTrWrapper.requisitoBeca.ADM_Solicitud__r.ADM_Sede__c, false);
+            datosTrWrapper.campus = ADM_Utility.buscaCampus(datosTrWrapper.requisitoBeca.ADM_Solicitud__r.ADM_Sede__c, true);
+            fechaC = datosTrWrapper.requisitoBeca.ADM_Fecha_solicitud__c;
+        }
+		//Buscar contacto
+		//datosTrWrapper.contacto = ADM_Utility.buscaContacto(idSolicitante);
+		//buscar requirement item
+		//datosTrWrapper.requisito = ADM_Utility.buscaRequisito(idReqItem);
+		
+        if(datosTrWrapper.requisito!=null && datosTrWrapper.CampusSede!=null){
+            datosTrWrapper = buildMontoTransaction(datosTrWrapper, idReqItem, fechaC);
+        }else{//No se encontro el item o el producto
+            datosTrWrapper.cantidadTotal = 0;
+          datosTrWrapper.montoTotal = 0;
+            datosTrWrapper.hasPayment = false;
+        }
+		return datosTrWrapper;
+	} */
+
+	/**
+	 * Regresa Datos de los catalogos para la Transaccion
+	 */
+
+	/* public static ADM_Utility.DatosTransaccionWrapper buildMontoTransaction(
+		ADM_Utility.DatosTransaccionWrapper datosTrWrapper,
+		String idReqItem,
+		Datetime fechaC
+	) {
+		System.debug('Se encontró el requisito y el producto');
+		//Obtener Term
+		//hed__Term__c term = ADM_Utility.buscaTerm(datosTrWrapper.idTerm);
+		//datosTrWrapper.sitio = datosTrWrapper.requisito.ADM_Proceso__c;
+		//Buscar tienda
+		//datosTrWrapper.tienda = ADM_Utility.buscaTienda(datosTrWrapper.requisito.ADM_Tienda__c);
+		//Obtener Campus por requisito
+		//datosTrWrapper.codigoDetalle = ADM_Utility.buscaCampusRequisito(idReqItem,datosTrWrapper.CampusSede.id,datosTrWrapper.requisito.ADM_Producto_generico__c);
+		//System.debug('datosTrWrapper.codigoDetalle '+datosTrWrapper.codigoDetalle);
+		//Obten Matricula
+		
+        if(datosTrWrapper.requisito.ADM_Enviar_ID_generico__c==true){
+           datosTrWrapper.matricula=datosTrWrapper.tienda.ADM_ID_generico__c;
+           datosTrWrapper.hasMatricula = false; 
+        }else{
+            Boolean hasMatricula = (datosTrWrapper.contacto.Matricula__c!=null && datosTrWrapper.contacto.Matricula__c!='')?true:false;
+            datosTrWrapper.matricula=hasMatricula?datosTrWrapper.contacto.Matricula__c:datosTrWrapper.tienda.ADM_ID_generico__c;
+          datosTrWrapper.hasMatricula = hasMatricula;
+        }
+       
+		List<String> idsProductos = new List<String>();
+		List<String> idsProductosTienda = new List<String>();
+		//Buscar productos por requisito
+		
+        if(datosTrWrapper.codigoDetalle!=null){
+            datosTrWrapper.productosRequisito = ADM_Utility.buscaProductoRequisitoxCampus(datosTrWrapper.codigoDetalle.Id);
+            if(datosTrWrapper.productosRequisito!=null){
+                for(ADM_Producto_requisito__c prod : datosTrWrapper.productosRequisito){
+                    idsProductos.add(prod.id);
+                    idsProductosTienda.add(prod.ADM_Producto__c);
+                }  
+            }
+        }
+		//Obtener bloques de productos
+		
+        Map<String, ADM_Bloque_producto__c> mapaProd = new Map<String,ADM_Bloque_producto__c>();
+        if(datosTrWrapper.requisito.ADM_Tipo_pago__c == 'Por bloque' && term != null){
+            datetime fecha;
+            if(datosTrWrapper.requisito.ADM_Momento_calculo__c == 'Creación'){
+                fecha = fechaC;
+            }else if(datosTrWrapper.requisito.ADM_Momento_calculo__c == 'Pago'){
+                fecha = datetime.now();
+            }
+            //Buscar Bloques por Producto relacionados a un bloque de pago válido
+            datosTrWrapper.bloquesProducto = ADM_Utility.buscaBloqueProducto(idsProductos, idReqItem, fecha.date(), term.id);
+            if(datosTrWrapper.bloquesProducto.size()!=0){
+                for(ADM_Bloque_producto__c bloqueProd : datosTrWrapper.bloquesProducto){
+                    mapaProd.put(bloqueProd.Producto__c,bloqueProd);
+                }
+            }
+        }
+        //Buscar productos de tienda
+        datosTrWrapper.productosTienda = ADM_Utility.buscaProductoTienda(idsProductosTienda);
+        //Calcular valores a enviar
+        String claveProd = '';
+        String nombreProd = '';
+        String cantidad = '';
+        String monto = '';
+        String claveTerm = '';
+        Decimal importe = 0;
+        Decimal cantidadI = 0;
+        Decimal montoTotal = 0.0;
+        if(datosTrWrapper.productosRequisito!=null){
+            //iterar sobre los productos por requisito para obtener el monto y cantidad del producto
+            for(ADM_Producto_requisito__c prodReq : datosTrWrapper.productosRequisito){
+                //Obtener la clave y descripción del producto del producto de tienda relacionado
+                for(ADM_Producto_tienda__c prodTienda : datosTrWrapper.productosTienda){
+                    if(prodTienda.id == prodReq.ADM_Producto__c){
+                        claveProd += prodTienda.ADM_Clave__c + '|';
+                        nombreProd += prodTienda.ADM_Nombre__c + '|';
+                        break;
+                    }
+                }
+                //Buscar el producto en el mapa de bloques por producto, en caso de que encontrar el registro relacionado, utilizar
+                //los valores de monto y cantidad
+                if(mapaProd.get(prodReq.ID)!=null){
+                    importe = mapaProd.get(prodReq.ID).ADM_Importe__c;
+                    cantidadI = mapaProd.get(prodReq.ID).ADM_Cantidad__c;
+                }else{//si no se encuentra, utilizar el monto y cantidad fija
+                    importe = prodReq.ADM_Importe_fijo__c;
+                    cantidadI = prodReq.ADM_Cantidad_fija__c;
+                }
+                cantidad += cantidadI + '|';
+                monto +=  importe + '|';
+                montoTotal += cantidadI * importe;
+            }
+            //Asignar valores
+            datosTrWrapper.claveP = claveProd.substring(0, claveProd.length()-1);
+            datosTrWrapper.nombreP = nombreProd.substring(0, nombreProd.length()-1);
+            datosTrWrapper.cantidadP = cantidad.substring(0, cantidad.length()-1);
+            datosTrWrapper.montoP = monto.substring(0, monto.length()-1);
+            datosTrWrapper.cantidadTotal = datosTrWrapper.productosRequisito.size();
+            datosTrWrapper.montoTotal = montoTotal;
+            datosTrWrapper.term = '';
+            datosTrWrapper.hasPayment = true;
+        }else{
+            datosTrWrapper.hasPayment = false;
+        }
+        if(datosTrWrapper.requisito.ADM_Enviar_term__c==true && term != null){
+            claveTerm = term.Clave_Ciclo_y_Periodo__c;
+            //construir term
+            for(integer i=0;i<(Integer.valueof(datosTrWrapper.cantidadTotal)-1);i++){
+                datosTrWrapper.term += claveTerm + '|';
+            }
+            datosTrWrapper.term += claveTerm;
+        }
+       
+		return datosTrWrapper;
+	} */
+
+	/**
+	 * Inserta un nuevo registro en el objeto de ADV_Transaction
+	 */
+
+	/*
+  
+    @AuraEnabled
+    public static Boolean insertTransaction(String pIdRequisito, ADM_Utility.InfoFacturaWrapper datosFac, List<ADM_Utility.InfoPagoWrapper> infoWrapper){
+        try {
+            ADV_Transaccion__c nuevaTr = buildNewTransaccion(infoWrapper, datosFac);
+            upsert nuevaTr;
+            return true;
+        } catch (Exception e) {
+            //Insert log errores
+            ADV_Utility util = new ADV_Utility();
+            util.creaAtrLogError(e.getMessage()+ ' Trace = ' + e.getStackTraceString(), null, null, '', e.getTypeName(), 'Sitio: Gestor de pago '+infoWrapper[0].sitio);
+            return false;
+        }
+    }
+    
+    @AuraEnabled
+    public static void updateDocReq(ADV_Transaccion__c datosTran, Boolean isUpdate, ADM_Estatus_requisito_pago__mdt configEstatusPago){
+        try {
+            if(datosTran.ADM_Requisito_admision__c!=null){//busca req Adm
+                ADM_Documento_requisito_admision__c docAdm = ADM_Utility.buscaDocumentoAdmision(datosTran.ADM_Requisito_admision__c);
+                docAdm.ADM_Transaccion__c = datosTran.ID;
+                docAdm.ADM_Codigo_detalle__c = datosTran.ADM_Codigo_detalle__c;
+                docAdm.ADM_Monto_total__c = datosTran.ADV_Monto__c;
+                docAdm.ADM_Monto_abonado__c = datosTran.ADM_Monto_abonado__c;
+                docAdm.ADM_Monto_pendiente__c = datosTran.ADM_Monto_pendiente__c;
+                docAdm.CurrencyIsoCode = datosTran.CurrencyIsoCode;
+                if(isUpdate){
+                    if(configEstatusPago.ADM_Entregado__c != null && configEstatusPago.ADM_Entregado__c != ''){
+                        docAdm.ADM_Entregado__c = Boolean.valueof(configEstatusPago.ADM_Entregado__c);
+                    }
+                    ADM_Estatus_requisito__c estatus = ADM_Utility.buscaEstatusReq(configEstatusPago.ADM_Estatus_requisito__c,datosTran.ADM_Requisito__c);
+                    if(estatus!=null){
+                        docAdm.ADM_Estatus__c = estatus.id;
+                    }
+                }
+                update docAdm;
+            }else if(datosTran.ADM_Requisito_beca__c!=null){//busca req beca
+                ADM_Documento_requisito_beca__c docBeca = ADM_Utility.buscaDocumentoBeca(datosTran.ADM_Requisito_beca__c);
+                docBeca.ADM_Transaccion__c = datosTran.ID;
+                docBeca.ADM_Codigo_detalle__c = datosTran.ADM_Codigo_detalle__c;
+                docBeca.ADM_Monto_total__c = datosTran.ADV_Monto__c;
+                docBeca.ADM_Monto_abonado__c = datosTran.ADM_Monto_abonado__c;
+                docBeca.ADM_Monto_pendiente__c = datosTran.ADM_Monto_pendiente__c;
+                docBeca.CurrencyIsoCode = datosTran.CurrencyIsoCode;
+                if(isUpdate){
+                    if(configEstatusPago.ADM_Entregado__c != null && configEstatusPago.ADM_Entregado__c != ''){
+                        docBeca.ADM_Entregado__c = Boolean.valueof(configEstatusPago.ADM_Entregado__c);
+                    }
+                    ADM_Estatus_requisito__c estatus = ADM_Utility.buscaEstatusReq(configEstatusPago.ADM_Estatus_requisito__c,datosTran.ADM_Requisito__c);
+                    if(estatus!=null){
+                        docBeca.ADM_Estatus__c = estatus.id;
+                    }
+                }
+                update docBeca;
+            }
+        } catch (Exception e) {
+            //Insert log errores
+            ADV_Utility util = new ADV_Utility();
+            util.creaAtrLogError(e.getMessage() + ' Trace = ' + e.getStackTraceString(), null, null, '', e.getTypeName(), 'Sitio: Gestor de pago '+datosTran.ADV_Sitio__c);
+        }
+    }
+    */
+	/**
+	 * Genera una nueva transaccion en base al mapa de la respuesta del servicio.
+	 * @param {pMapStringWebserviceResponse} Map<String, String>  String original (llave), String desencriptado
+	 */
+
+	/*
+  
+    @AuraEnabled
+    public static ADV_Transaccion__c buildNewTransaccion(List<ADM_Utility.InfoPagoWrapper> infoWrapper, ADM_Utility.InfoFacturaWrapper datosFac){
+        ADV_Transaccion__c lTransaction = new ADV_Transaccion__c();
+        ADM_Utility.InfoPagoWrapper datosTrWrapper = infoWrapper[0];
+        ADM_Configuracion__c lCustomSettingsConf = ADM_Configuracion__c.getInstance();
+        lTransaction.RecordtypeId = Schema.SObjectType.ADV_Transaccion__c.getRecordTypeInfosByDeveloperName().get('ADM_Admisiones').getRecordTypeId(); 
+        lTransaction.ADM_Tienda__c = datosTrWrapper.idTienda;
+        lTransaction.ADM_Codigo_detalle__c = datosTrWrapper.idCodigoDetalle;
+        lTransaction.ADM_Requisito_admision__c = datosTrWrapper.idDocAdm;
+        lTransaction.ADM_Requisito_beca__c  = datosTrWrapper.idDocBeca;
+        lTransaction.ADM_Requisito__c = datosTrWrapper.idRequisito;
+        lTransaction.ADV_Contacto__c = datosTrWrapper.idContact;
+        lTransaction.ADM_Tipo_transaccion__c = datosTrWrapper.tipoTransacccion;
+        lTransaction.ADV_Estatus__c = datosTrWrapper.estatus;
+        lTransaction.CurrencyIsoCode = datosTrWrapper.tipoMoneda;
+        lTransaction.ADV_Monto__c = datosTrWrapper.montoTotal;
+        lTransaction.ADV_Sitio__c = datosTrWrapper.sitio;
+        lTransaction.ADM_Identificador__c = datosTrWrapper.matricula;
+        if(datosFac.requerido == false && datosFac.matricula == false){
+            lTransaction.ADM_Facturacion__c = 'No';
+        }else if(datosFac.requerido == false && datosFac.matricula == true){
+            lTransaction.ADM_Facturacion__c = 'Factura automática';
+        }else if(datosFac.requerido == true && datosFac.matricula == false){
+            lTransaction.ADM_Facturacion__c = 'Factura manual';
+            lTransaction.ADV_Nombres__c = datosFac.nombre;
+            lTransaction.ADV_Codigo_Postal__c = datosFac.codigoPostal;
+            lTransaction.ADV_Apellido_Paterno__c = datosFac.apellidoP;
+            lTransaction.ADV_Apellido_Materno__c = datosFac.apellidoM;
+            lTransaction.ADV_Razon_Social__c = datosFac.razonSocial;
+            lTransaction.ADV_Email_de_facturacion__c = datosFac.email;
+            lTransaction.ADM_Numero_identificacion_fiscal__c = datosFac.idFiscal;
+            ATR_Pais__c pais = ADM_utility.buscaPais(datosFac.pais);
+            lTransaction.ADM_Pais__c = pais!=null?pais.id:null;
+            if(pais.Name != 'México'){
+                lTransaction.ADV_RFC_TAX_ID__c = lCustomSettingsConf.ADM_Facturacion_RFC_generico_inter__c;
+            }else{
+                lTransaction.ADV_RFC_TAX_ID__c = datosFac.rfc;
+            }
+            ADM_Uso_CFDI__c regUsoCFDI;
+            if(datosFac.cfdi!=null && datosFac.cfdi!=''){
+                regUsoCFDI = ADM_utility.buscaUsoCFDI(datosFac.cfdi, datosFac.regimenFiscal);
+            }else{
+                regUsoCFDI = ADM_utility.buscaUsoCFDI(lCustomSettingsConf.ADM_Facturacion_CFDI_Extranjeros__c, datosTrWrapper.idRequisito);
+            }
+            lTransaction.ADM_Uso_CFDI__c = regUsoCFDI!=null?regUsoCFDI.iD:null;
+        }else if(datosFac.requerido == true && datosFac.matricula == true){
+            lTransaction.ADM_Facturacion__c = 'Factura automática';
+        }
+        return lTransaction;
+    }*/
+
+	//Regreso Asíncrono
+	public static string ejecutarProcesoPago(ADV_Utility.DatosGestorRetornoWrapper respuestaGestorPago) {
+		ADV_Utility util = new ADV_Utility();
+		String msgErr = 'OK';
+
+		try {
+			System.debug('respuestaGestorPago ' + respuestaGestorPago);
+
+			Map<String, Opportunity> mapOpps = ADV_Utility.getMapIdOpportunities(respuestaGestorPago.FOLIO_TIENDA);
+			List<AB_Transaccion__c> lstNewTransactions = new List<AB_Transaccion__c>();
+			List<String> lstFolios = new List<String>();
+
+			if (!mapOpps.containsKey(respuestaGestorPago.FOLIO_TIENDA)) {
+				lstFolios.add(respuestaGestorPago.FOLIO_TIENDA);
+			} else {
+				Opportunity opp = mapOpps.get(respuestaGestorPago.FOLIO_TIENDA);
+				lstNewTransactions.add(generatePaymentTransaction(respuestaGestorPago, opp));
+			}
+
+			if (!lstFolios.isEmpty()) {
+				msgErr =
+					MSG_ERROR_MATRICULA +
+					lstFolios.toString().replace(OPEN_PARENTHESIS, '').replace(CLOSE_PARENTHESIS, '');
+
+				util.creaAtrLogError(msgErr, null, null, '', NOMBRE_LOG, ATR_LOG_TYPE_2);
+			}
+
+			if (!lstNewTransactions.isEmpty()) {
+				Database.SaveResult[] dsr = Database.insert(lstNewTransactions, false);
+				msgErr = validateSaveResults(dsr);
+			}
+
+			return msgErr;
+		} catch (Exception ex) {
+			//Insert log errores
+
+			util.creaAtrLogError(
+				ex.getMessage() + ' Trace = ' + ex.getStackTraceString(),
+				null,
+				null,
+				'',
+				ex.getTypeName(),
+				'Sitio: Gestor de pago '
+			);
+			return 'Ocurrió un error inesperado. Mensaje: ' + ex.getMessage() + ' Trace = ' + ex.getStackTraceString();
+		}
+	}
+
+	//Regreso Asíncrono
+	/* public static string ejecutarProcesoPago(string folioTransaccion, string pedido, string formaPago) {
+		
+        System.debug('ADM_GestorDePagoTransaction.ejecutarProcesoPago -> folioTransaccion: '+folioTransaccion + ' pedido: '+pedido);
+        List<ADV_Transaccion__c> lTransactions = [SELECT Id FROM ADV_Transaccion__c WHERE ADV_No_De_Pedido__c =: pedido OR 
+                                                  (Name =: folioTransaccion AND (ADV_No_De_Pedido__c = null OR ADV_No_De_Pedido__c = ''))];
+        if(lTransactions.size()!=0){
+            consultaPedidoAsinc(folioTransaccion, pedido, formaPago);
+        }else{
+            response = 'No se encontro el pedido ' + pedido + '.';
+        }
+		return response;
+	}*/
+
+	/*
+    //Regreso Síncrono
+    @AuraEnabled
+    public static void ejecutarProcesoPago(Map<String,String> datosGestor){
+        try {
+            //Busca Transaccion
+            System.debug('folioTienda: '+datosGestor.get('folioTienda'));
+            ADV_Transaccion__c transaccion = ADM_Utility.buscaTransaccionxFolio(datosGestor.get('folioTienda'));
+            if(transaccion!=null){
+                //LLama al checkout en caso de ser un pago por ficha de deposito
+                Map<String,String> paramRef = new Map<String,String>();
+                Map<String,String> paramPedido = new Map<String,String>(); 
+                if(datosGestor.get('descFormaPago')=='Ficha de Depósito Nacional'){
+                    paramRef = consultaReferenciaBancaria(datosGestor.get('folioTienda'), datosGestor.get('pedido'));
+                }
+                
+                paramPedido = consultaPedido(transaccion, datosGestor.get('pedido'));
+                updateTransaction(paramPedido, paramRef, transaccion);
+                //Insertar Log de Donativos
+                ADV_Log_Donativo__c oLog = new ADV_Log_Donativo__c ();
+                oLog.ADV_Tipo_Log__c  = 'Bus';
+                oLog.ADV_Folio_Transaccion__c = datosGestor.get('folioTienda');
+                oLog.ADV_Estatus_pago__c = datosGestor.get('estatus');
+                oLog.ADV_Folio_Suscripcion__c = datosGestor.get('idSuscripcion');
+                oLog.ADV_Numero_de_Pedido__c = datosGestor.get('pedido');
+                oLog.ADV_Json_Enviado__c = JSON.serialize(datosGestor);
+                insert oLog;
+            }
+        } catch (Exception e) {
+            //Insert log errores
+            ADV_Utility util = new ADV_Utility();
+            util.creaAtrLogError(e.getMessage() + ' Trace = ' + e.getStackTraceString(), null, null, '', e.getTypeName(), 'Sitio: Gestor de pago '+datosGestor.get('opcional'));
+        } 
+    }*/
+	/*
+    @AuraEnabled
+    public static Map<String,String> consultaPedido(ADV_Transaccion__c transaccion, String noPedido) {
+        ADM_Tienda__c tienda = ADM_Utility.buscaTienda(transaccion.ADM_Tienda__c);
+        System.debug('ADM_GestorDePagoTransaction.consultaPedido -> tienda: '+tienda);
+        if(tienda!=null){
+            Map<String,String> parametros = makeCallout(noPedido, tienda);
+            return parametros;
+        }else{
+            return null;
+        }
+    }
+    
+    @AuraEnabled @future(callout=true)
+    public static void consultaPedidoAsinc(String folioTransaccion, String noPedido, string formaPago) {
+        System.debug('ADM_GestorDePagoTransaction.consultaPedidoAsinc -> folioTransaccion = ' + folioTransaccion + ' noPedido = ' + noPedido + ' formaPago = ' + formaPago );
+        //encriptar llave
+        ADV_Transaccion__c transaccion = [SELECT Id, Name, ADV_Monto__c, ADM_Tienda__c, ADM_Factura_solicitada__c, ADM_Facturacion__c, ADV_Sitio__c,
+                                          ADM_Requisito_admision__c, ADM_Requisito_beca__c, ADM_Codigo_detalle__c, ADM_Monto_abonado__c, 
+                                          ADM_Monto_pendiente__c, CurrencyIsoCode, ADV_Estatus__c, ADM_Requisito__c, ADV_Forma_de_Pago__c
+                                          FROM ADV_Transaccion__c WHERE ADV_No_De_Pedido__c =: noPedido OR 
+                                          (Name =: folioTransaccion AND (ADV_No_De_Pedido__c = null OR ADV_No_De_Pedido__c = ''))];
+        System.debug('ADM_GestorDePagoTransaction.consultaPedidoAsinc -> transaccion = ' + transaccion);
+        
+        if(transaccion!=null){
+            try{
+                //Consulta url ficha de deposito
+                Map<String,String> paramRef = new Map<String,String>();
+                if(transaccion.ADV_Forma_de_Pago__c == 'Ficha de Depósito Nacional' | formaPago == 'Ficha de Depósito Nacional'){
+                    paramRef = consultaReferenciaBancaria(transaccion.Name, noPedido);
+                }
+                Map<String,String> parametros = consultaPedido(transaccion, noPedido);
+                updateTransaction(parametros, paramRef, transaccion);
+            } catch(Exception ex){
+                //Insert log errores
+                ADV_Utility util = new ADV_Utility();
+                util.creaAtrLogError(ex.getMessage() + ' Trace = ' +  ex.getStackTraceString(), null, null, '', ex.getTypeName(), 'consultaPedidoAsinc: folioTransaccion = ' + folioTransaccion + ' noPedido = ' + noPedido + ' formaPago = ' + formaPago );                
+            }
+        }            
+    }
+    
+    @AuraEnabled
+    public static Map<String,String> makeCallout(String noPedido, ADM_Tienda__c tienda) {
+        String llave = '';
+        llave = tienda.ADM_Clave__c+tienda.ADM_Codigo__c+tienda.ADM_Llave__c;
+        //acceder al metadata
+        GestorPago_Configuracion__mdt configGestor = ADM_Utility.buscaConfiguracionGestor();
+        
+        String llaveEn = EncodingUtil.convertToHex(Crypto.generateDigest('SHA1',Blob.valueOf(llave)));
+        //LLamar al servicio
+        HttpRequest req = new HttpRequest();
+        //sacar del metadato
+        String Endpoint = configGestor.PagosWSEndpoint__c+'/ConsultaPedido?';
+        Endpoint += 'CveTienda='+ tienda.ADM_Clave__c + '&';
+        Endpoint += 'CvePedido='+ noPedido + '&';
+        Endpoint += 'LlaveEncriptada='+llaveEn;
+        req.setEndpoint(Endpoint);
+        req.setMethod('GET');
+        req.setTimeout(120000);
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        System.debug('Body Response: ' + res.getBody());
+        //Procesar respuesta
+        DOM.Document doc = new DOM.Document();
+        doc.load(res.getBody());
+        //Retrieve the root element for this document.
+        List<Dom.XMLNode> elements = doc.getRootElement().getChildElements();
+        Map<String,String> parametros = new Map<String,String>(); 
+        for(Dom.XMLNode element : elements){
+            parametros.put(element.getName(),element.getText());
+            System.debug('ADM_GestorDePagoTransaction.makeCallout -> ' + element.getName()+' : '+element.getText());
+        }
+        parametros.put('pedido',noPedido);
+        return parametros;
+    }
+    
+    @AuraEnabled
+    public static Map<String,String> consultaReferenciaBancaria(String folioTransaccion, String noPedido) {
+        //encriptar llave
+        System.debug('folioTransaccion: '+folioTransaccion);
+        ADV_Transaccion__c transaccion = ADM_Utility.buscaTransaccionxFolio(folioTransaccion);
+        String llave = '';
+        if(transaccion!=null){
+            ADM_Tienda__c tienda = ADM_Utility.buscaTienda(transaccion.ADM_Tienda__c);
+            if(tienda!=null){
+                llave = tienda.ADM_Clave__c+tienda.ADM_Codigo__c+tienda.ADM_Llave__c;
+                 //acceder al metadata
+                GestorPago_Configuracion__mdt configGestor = ADM_Utility.buscaConfiguracionGestor();
+                
+                String llaveEn = EncodingUtil.convertToHex(Crypto.generateDigest('SHA1',Blob.valueOf(llave)));
+                //LLamar al servicio
+                HttpRequest req = new HttpRequest();
+                //sacar del metadato
+                String Endpoint = configGestor.PagosWSEndpoint__c+'/ConsultaReferenciaBancaria?';
+                Endpoint += 'CveTienda='+ tienda.ADM_Clave__c + '&';
+                Endpoint += 'IdCliente='+ transaccion.ADM_Identificador__c + '&';
+                Endpoint += 'FolioTienda='+ transaccion.Name + '&';
+                Endpoint += 'CvePedido='+ noPedido + '&';
+                Endpoint += 'LlaveEncriptada='+llaveEn;
+                req.setEndpoint(Endpoint);
+                req.setMethod('GET');
+                //
+                Http http = new Http();
+                HttpResponse res = http.send(req);
+                System.debug('Body Response: ' + res.getBody());
+                //Procesar respuesta
+                DOM.Document doc = new DOM.Document();
+                doc.load(res.getBody());
+                //Retrieve the root element for this document.
+                List<Dom.XMLNode> elements = doc.getRootElement().getChildElements();
+                Map<String,String> parametros = new Map<String,String>(); 
+                for(Dom.XMLNode element : elements){
+                    parametros.put(element.getName(),element.getText());
+                }
+                return parametros;
+            }else{
+                return null;
+            }
+        }else{
+            return null;
+        }
+    }
+        
+    @AuraEnabled
+    public static void updateTransaction(Map<String,String> paramPedido, Map<String,String> paramRef, ADV_Transaccion__c lTransaction){
+        System.debug('ADM_GestorDePagoTransaction.updateTransaction -> ResultadoWS = ' + paramPedido.get('ResultadoWS'));
+        if(paramPedido.get('ResultadoWS')=='0'){
+            String itemId = lTransaction.ADM_Requisito__c;
+            ADM_Estatus_requisito_pago__mdt configEstatusPago = ADM_Utility.buscaConfiguracionEstatusRequisitoPago(itemId, paramPedido.get('DescripcionEstatus'));
+            System.debug('ADM_GestorDePagoTransaction.updateTransaction -> configEstatusPago = ' + configEstatusPago);
+            
+            if(configEstatusPago!=null){
+              if(configEstatusPago.ADM_Pago_completo__c==true){
+                    lTransaction.ADV_Fecha_de_Pago__c = date.today();
+                }
+                lTransaction.ADV_Forma_de_Pago__c = paramPedido.get('DescFormaPago');
+                lTransaction.ADV_Estatus__c = paramPedido.get('DescripcionEstatus');
+                lTransaction.ADM_Monto_abonado__c = Decimal.valueof(paramPedido.get('TotalAbonado')); 
+                lTransaction.ADM_Monto_pendiente__c = Decimal.valueof(paramPedido.get('MontoPendienteDePago')); 
+                lTransaction.ADM_Monto_excedente__c = Decimal.valueof(paramPedido.get('TotalPagoExcedentePesos'));
+                lTransaction.ADV_No_De_Pedido__c = paramPedido.get('pedido');
+                lTransaction.ADM_Tipo_transaccion__c = paramPedido.get('TipoTransaccion')=='VENTA'?'Venta':'Abono';
+                lTransaction.ADM_Mensaje_pago__c = paramPedido.get('MensajePago'); //Si el pedido se realizó exitosamente regresa null
+                if(paramRef!=null){
+                    if(paramRef.get('URLFichaDeposito')!=null){
+                        lTransaction.ADM_Ficha_deposito__c = paramRef.get('URLFichaDeposito');
+                    }else{
+                        lTransaction.ADV_Msj_de_Error_del_Gestor__c = paramRef.get('Mensaje');        
+                    }
+                }
+                System.debug('ADM_GestorDePagoTransaction.updateTransaction -> lTransaction = ' + lTransaction);
+                update lTransaction;
+                //Busca y actualiza el Doc y req si se encontro un estatus de pago
+                updateDocReq(lTransaction, true, configEstatusPago);
+            }
+        }else{
+            lTransaction.ADV_Msj_de_Error_del_Gestor__c = paramPedido.get('MensajePago'); 
+            update lTransaction;
+            System.debug('ADM_GestorDePagoTransaction.updateTransaction -> lTransaction = ' + lTransaction);
+        }
+    }*/
+
+	private static AB_Transaccion__c generatePaymentTransaction(
+		ADV_Utility.DatosGestorRetornoWrapper respuestaGestorPago,
+		Opportunity opp
+	) {
+		AB_Transaccion__c trSObj = new AB_Transaccion__c();
+		trSObj.AB_Matricula__c = respuestaGestorPago.MATRICULA;
+		trSObj.AB_Contacto__c = opp?.Contact__c;
+		trSObj.AB_Oportunidad__c = opp.Id;
+		trSObj.AB_Banco__c = respuestaGestorPago.CLAVE_TIENDA;
+		trSObj.AB_Numero_Autorizacion__c = respuestaGestorPago.FOLIO_TIENDA;
+		trSObj.AB_Numero_Referencia__c = respuestaGestorPago.NUMERO_PEDIDO;
+		trSObj.AB_Clave_Estatus__c = respuestaGestorPago.ESTATUS;
+		trSObj.AB_Estatus__c = respuestaGestorPago.DES_ESTATUS;
+		trSObj.AB_Fecha_Hora_Pago__c = Datetime.valueOf(respuestaGestorPago.FECHA_HORA_PAGO);
+		trSObj.AB_Monto_a_pagar__c = Decimal.valueOf(Double.valueOf(respuestaGestorPago.MONTO));
+		trSObj.AB_Monto_Pago__c = Decimal.valueOf(Double.valueOf(respuestaGestorPago.MONTO_ABONADO));
+
+		return trSObj;
+	}
+
+	private static String validateSaveResults(Database.SaveResult[] dsr) {
+		List<ATR_Log_Errores__c> lstAtrLogs = new List<ATR_Log_Errores__c>();
+		ADV_Utility util = new ADV_Utility();
+		String msgErr = 'OK';
+
+		for (Database.SaveResult sr : dsr) {
+            System.debug('isSucc'  + sr.isSuccess());
+			if (!sr.isSuccess()) {
+				for (Database.Error err : sr.getErrors()) {
+					msgErr =
+						ERROR_TEXT.replace(REG_CODE_ERROR_REPLACE, String.valueOf(err.getStatusCode())) +
+						ERROR_TEXT.replace(REG_FIELDS_ERROR_REPLACE, err.getFields() + STR_MSG + err.getMessage());
+					ATR_Log_Errores__c errorLog = util.creaAtrLogError(
+						msgErr,
+						err.getFields(),
+						NOMBRE_LOG,
+						null,
+						ATR_LOG_TYPE_2
+					);
+					lstAtrLogs.add(errorLog);
+					System.debug('msgErr ::: ' + msgErr);
+				}
+			}
+		}
+
+		if (!lstAtrLogs.isEmpty()) {
+			insert lstAtrLogs;
+		}
+
+		return msgErr;
+	}
+}
