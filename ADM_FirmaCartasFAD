@@ -1,0 +1,444 @@
+/*****************************************************************************************************************
+Version : 1.0
+Created Date : 2020-01-22
+Class Name : ADM_FirmaCartasFAD 
+Test Class : ADM_FirmaCartasFAD_Test
+*-----------------------------------------------------------------------------------------------------------------
+*          Developer                    Date                    Description                    Changes
+*-----------------------------------------------------------------------------------------------------------------
+*        Israel Hernández            2020-01-22               Original Version               -------------
+*-----------------------------------------------------------------------------------------------------------------
+*****************************************************************************************************************/
+public class ADM_FirmaCartasFAD {
+    
+    public static Boolean isFirstRunCreaetReq = true;
+    private static final String STR_ADMISION = 'Admisiones';
+    private static final String MSG_ERROR_LENGTH_EXCEEDS = 'String length exceeds maximum: 6000000';
+    private static final String ERROR_TEXT = 'Ocurrió un error con el servicio, informe a su administrador y proporcione los '
+    + 'siguientes detalles: ' + '\n';
+    private static final String ERROR_APEX_CLASS = 'Apex Class: ADM_FirmaCartasFAD Message: ';
+    private static final String MSG_CODE = 'Servicio: /requisitions/createRequisicionB2C';
+    private static final String ERROR_LINE = '\nLine: ';
+    private static final String NOT_FOUND_SETTINGS_SIGN = 'No se encontró ningúna configuración de firma del documento. ';
+    private static final String NOT_FOUND_FILE = 'No se encontró ningún documento para la firma. ';
+    private static final String NOT_FOUND_CONTACT = 'No se encontró ningún contacto para la firma. ';
+    private static final String PHONE_DUPLICATED = 'Algún número telefónico de los firmantes se repite. ';
+    private static final String ERROR_TYPE = 'API FAD';
+    private static final String SEC_CODE = 'SEC_CODE';
+    private static final String ROL_PADRE = 'Padre';
+    private static final String ROL_MADRE = 'Madre';
+    private static final String ROL_TUTOR = 'Tutor';
+    private static Id RT_SOLICITUD_BECA = Schema.SObjectType.hed__Application__c.getRecordTypeInfosByDeveloperName()
+        .get('AB_SolicitudBecaSedenaSemar').getRecordTypeId();//Solicitud Beca Sedena/Semar
+
+	public static void createRequisitionFAD(Sobject docReq){
+        System.debug('ADM_FirmaCartasFAD -> Inicia Proceso Firma de documento FAD');
+        Id idDocReq;
+        Id idRequisito;
+        Id contentDocId;
+        Id idSolicitante;
+        Id idSolicitud; //en ambos casos es id de solicitud de admision
+        String Folio;
+        String TipoServicio;
+        String LeyendaDocumento;
+        String documentTitle;
+        String configCarta;
+        String NumeroArroba;
+        String TipoRequisito;
+        String errorFirmantes = '';
+        Boolean banderaFirmantes = false;
+        ContentVersion contentVersionDoc;
+        Schema.SObjectType schemaAdm = Schema.ADM_Documento_requisito_admision__c.getSObjectType();
+        Schema.SObjectType schemaBeca = Schema.ADM_Documento_requisito_beca__c.getSObjectType();
+        List<WrapperFAD.firmaDocumento> firmasDocumento = new List<WrapperFAD.firmaDocumento>();
+        List<SObject> firmasDocumentToUpdate = new List<SObject>();
+        List<String> rolesRelated = new List<String>();
+        List<String> configFirmasRelated = new List<String>();
+        Map<String,List<ADM_Configuracion_firma__c>> mapaRolXconfigFirmas = new Map<String,List<ADM_Configuracion_firma__c>>();
+        Map<String,configFirmante> mapaRolesxConfigFirm = new Map<String,configFirmante>();
+        Map<String,String> mapaRolesxFirmDoc = new Map<String,String>();
+        Map<Id,Contact> contactMap = new Map<Id,Contact>();
+        Map<String,ID> mapaRolesxCon = new Map<String,ID>();
+        //Obtener el tipo de objeto
+        if(schemaAdm==docReq.getSObjectType()){
+            // Validar tipo de registro
+            // 
+            System.debug('Es una solicitud de Adm');
+            ADM_Documento_requisito_admision__c docReqAdm = (ADM_Documento_requisito_admision__c)docReq;
+            idDocReq = docReqAdm.id;
+            idSolicitud = docReqAdm.ADM_Solicitud__c;
+            idRequisito = docReqAdm.ADM_Requisito__c;
+            LeyendaDocumento = docReqAdm.ADM_Leyenda_aceptacion__c;
+            idSolicitante = docReqAdm.ADM_Solicitante__c;
+            Folio = docReqAdm.Name;
+            TipoServicio = STR_ADMISION;
+        }
+         else if(schemaBeca==docReq.getSObjectType()){
+            System.debug('Es una solicitud de Beca');
+            ADM_Documento_requisito_beca__c docReqBeca = (ADM_Documento_requisito_beca__c)docReq;
+            idDocReq = docReqBeca.id;
+            idSolicitud = docReqBeca.ADM_Solicitud__c;
+            idRequisito = docReqBeca.ADM_Requisito__c; 
+            LeyendaDocumento = docReqBeca.ADM_Leyenda_aceptacion__c;
+            idSolicitante = docReqBeca.ADM_Solicitante__c;
+            Folio = docReqBeca.Name;
+            TipoServicio = 'Becas';
+        }  
+        System.debug('idRequisito '+idRequisito);
+        //Obtener los contactos y las configuraciones de la carta
+        //look for Application Requirement Item
+        /**
+         * TODO ajustar sección a los objetos de EDA y admissions
+         */
+        /*EnrollmentrxRx__Application_Requirement_Item__c appReqItem = [SELECT ID, ADM_Nombre_documento_FAD__c, ADM_Nombre_documento_Conga__c, ADM_Tipo_contrato__c,ADM_Video_aceptacion__c, 
+                                                                      ADM_Leyenda_aceptacion__c, ADM_Vigencia_FAD__c, ADM_Pagina_certificado__c, ADM_Posicion_X1__c, 
+                                                                      ADM_Posicion_X2__c, ADM_Posicion_Y1__c, ADM_Posicion_Y2__c, ADM_Firma_Web__c, ADM_Tipo_requisito__c
+                                                                      FROM EnrollmentrxRx__Application_Requirement_Item__c
+                                                                      WHERE ID =: idRequisito];
+        
+        TipoRequisito = appReqItem.ADM_Tipo_requisito__c;*/
+        /*DocumentChecklistItem appReqItem =[SELECT ID, ADM_Nombre_documento_FAD__c, ADM_Nombre_documento_Conga__c, ADM_Tipo_contrato__c,ADM_Video_aceptacion__c, 
+        ADM_Leyenda_aceptacion__c, ADM_Vigencia_FAD__c, ADM_Pagina_certificado__c, ADM_Posicion_X1__c, 
+        ADM_Posicion_X2__c, ADM_Posicion_Y1__c, ADM_Posicion_Y2__c, ADM_Firma_Web__c, ADM_Tipo_requisito__c
+        FROM DocumentChecklistItem
+        WHERE ID =: idRequisito];*/
+        AB_Tipo_Application_Material_Mapping__c appReqItem =[SELECT ID, ADM_Nombre_documento_FAD__c, ADM_Nombre_documento_Conga__c, ADM_Tipo_contrato__c,ADM_Video_aceptacion__c, 
+            ADM_Leyenda_aceptacion__c, ADM_Vigencia_FAD__c, ADM_Pagina_certificado__c, ADM_Posicion_X1__c, 
+            ADM_Posicion_X2__c, ADM_Posicion_Y1__c, ADM_Posicion_Y2__c, ADM_Firma_Web__c, ADM_Tipo_requisito__c
+            FROM AB_Tipo_Application_Material_Mapping__c
+            WHERE ID =: idRequisito];
+        TipoRequisito = appReqItem.ADM_Tipo_requisito__c;
+        System.debug('TipoRequisito :: '+TipoRequisito);
+       //look for Firmas del documento
+       if(schemaAdm==docReq.getSObjectType()){
+            for(ADM_Firma_documento_admision__c firmaD : [Select ID, ADM_Contacto__c, ADM_Contacto__r.Numero_arroba__c, ADM_Orden__c, ADM_Video_aceptacion__c, ADM_Rol__c,
+                                                              ADM_Codigo_seguridad__c, ADM_Leyenda_aceptacion__c
+                                                              FROM ADM_Firma_documento_admision__c  WHERE ADM_Requisito__c =: idDocReq]){
+                firmasDocumentToUpdate.add(firmaD);
+                List<String> roles = firmaD.ADM_Rol__c.split(';');
+                for(String rol : roles){
+                    configFirmante nuevoFirm = new configFirmante();
+                    nuevoFirm.idConfigFirmante = firmaD.ID;
+                    nuevoFirm.contacto = firmaD.ADM_Contacto__c;
+                    nuevoFirm.arroba = firmaD.ADM_Contacto__r.Numero_arroba__c;
+                    nuevoFirm.rol = rol;
+                    nuevoFirm.datosAutenticacion = firmaD.ADM_Codigo_seguridad__c;
+                    nuevoFirm.orden = String.valueof(firmaD.ADM_Orden__c);
+                    nuevoFirm.videoacuerdo = String.valueof(!firmaD.ADM_Video_aceptacion__c);
+                    nuevoFirm.leyenda = firmaD.ADM_Leyenda_aceptacion__c;
+                    mapaRolesxCon.put(rol,firmaD.ADM_Contacto__c);
+                    mapaRolesxConfigFirm.put(rol,nuevoFirm);
+                }
+            }
+       }
+        else if(schemaBeca==docReq.getSObjectType()){
+           
+           for(ADM_Firma_documento_beca__c firmaD : [Select ID, ADM_Contacto__c, ADM_Contacto__r.Numero_arroba__c, ADM_Orden__c, ADM_Video_aceptacion__c, ADM_Rol__c,
+                                                              ADM_Codigo_seguridad__c, ADM_Leyenda_aceptacion__c
+                                                              FROM ADM_Firma_documento_beca__c WHERE ADM_Requisito__c =: idDocReq]){
+                firmasDocumentToUpdate.add(firmaD);
+                System.debug('firmaD '+firmaD);                                                  
+                List<String> roles = firmaD.ADM_Rol__c.split(';');
+                for(String rol : roles){
+                    configFirmante nuevoFirm = new configFirmante();
+                    nuevoFirm.idConfigFirmante = firmaD.ID;
+                    nuevoFirm.contacto = firmaD.ADM_Contacto__c;
+                    nuevoFirm.arroba = firmaD.ADM_Contacto__r.Numero_arroba__c;
+                    nuevoFirm.rol = rol;
+                    nuevoFirm.datosAutenticacion = firmaD.ADM_Codigo_seguridad__c;
+                    nuevoFirm.orden = String.valueof(firmaD.ADM_Orden__c);
+                    nuevoFirm.videoacuerdo = String.valueof(!firmaD.ADM_Video_aceptacion__c);
+                    nuevoFirm.leyenda = firmaD.ADM_Leyenda_aceptacion__c;
+                    mapaRolesxCon.put(rol,firmaD.ADM_Contacto__c);
+                    mapaRolesxConfigFirm.put(rol,nuevoFirm);
+                }
+            }
+        }
+        System.debug('mapaRolesxConfigFirm ::: '+mapaRolesxConfigFirm);
+        //look for Configuración de firmante 
+        for(ADM_Configuracion_firmante__c conFirmante : [SELECT ID, ADM_Firmante__c, ADM_Tipo_autenticacion__c, ADM_Orden__c
+            FROM ADM_Configuracion_firmante__c WHERE ADM_Requisito__c = :appReqItem.Id AND ADM_Activo__c = true
+            AND ADM_Firmante__c IN :mapaRolesxConfigFirm.keySet()]){
+            System.debug('conFirmante '+conFirmante);
+            mapaRolesxConfigFirm.get(conFirmante.ADM_Firmante__c).tipoAutenticacion = conFirmante.ADM_Tipo_autenticacion__c;
+            rolesRelated.add(conFirmante.ADM_Firmante__c);
+            configFirmasRelated.add(conFirmante.id);                                                 
+                                                    
+        }
+        System.debug('configFirmasRelated ::: '+configFirmasRelated);
+        //look for Configuración de firma
+        for(ADM_Configuracion_firma__c configFirma : [SELECT ADM_Posicion_X1__c, ADM_Posicion_X2__c, ADM_Posicion_Y1__c, 
+            ADM_Posicion_Y2__c, ADM_Pagina__c, ADM_Firmante__r.ADM_Firmante__c FROM ADM_Configuracion_firma__c 
+            WHERE ADM_Activo__c = true AND ADM_Firmante__c IN :configFirmasRelated]){
+            
+            if(mapaRolXconfigFirmas.get(configFirma.ADM_Firmante__r.ADM_Firmante__c)!=null){
+                 mapaRolXconfigFirmas.get(configFirma.ADM_Firmante__r.ADM_Firmante__c).add(configFirma);                                                
+            }else{
+                 mapaRolXconfigFirmas.put(configFirma.ADM_Firmante__r.ADM_Firmante__c,new List<ADM_Configuracion_firma__c>{configFirma});
+            }           
+        }
+        System.debug('mapaRolXconfigFirmas :: '+mapaRolXconfigFirmas);
+        //look for Applicant and Contacts rel.
+        for(Contact c : [SELECT Id, Name, Nombre_Completo__c, Email, MobilePhone, Phone, Numero_arroba__c FROM Contact 
+            WHERE Id IN : mapaRolesxCon.values()]){
+            contactMap.put(c.Id, c);
+            
+            if (c.Id == idSolicitante){
+            	NumeroArroba = c.Numero_arroba__c;                     
+            }
+        }
+        
+        banderaFirmantes = valiateKeyDuplicate(contactMap);
+        
+        /*TODO ajustar campo documentTitle = '%'+appReqItem.ADM_Nombre_documento_Conga__c+'%';*/
+        documentTitle = '%'+appReqItem.ADM_Nombre_documento_Conga__c+'%';
+        System.debug('documentTitle :: '+documentTitle);
+        //look for the ContentDocumentLink related  to the record id
+        list<ContentDocumentLink> cdl = [SELECT id, ContentDocumentId, ContentDocument.FileExtension, ContentDocument.title 
+                                         FROM ContentDocumentLink 
+                                         WHERE (LinkedEntityId =: idDocReq OR LinkedEntityId =: idSolicitud ) AND 
+                                         ContentDocument.FileExtension = 'pdf' AND 
+                                         ContentDocument.title LIKE: documentTitle];
+        if(!cdl.isEmpty()){
+            contentDocId = cdl[0].ContentDocumentId; 
+        }
+        System.debug('contentDocId :: '+contentDocId);
+        //obtain the ContentVersion
+        List<ContentVersion> contentVersionList = [SELECT Id, Title, FileType, VersionData, isLatest, ContentDocumentId, CreatedDate
+                                                   FROM ContentVersion
+                                                   WHERE isLatest = true AND ContentDocumentId =: contentDocId ORDER BY CreatedDate DESC];
+        if(!contentVersionList.isEmpty()){
+            contentVersionDoc = contentVersionList[0]; 
+        }
+        System.debug('contentVersionDoc :: '+contentVersionDoc);
+        //Validar firmas, documento pdf y lista de contactos
+        if(!mapaRolXconfigFirmas.isEmpty() && !contentVersionList.isEmpty() && !contactMap.isEmpty() 
+            && banderaFirmantes == false && TipoRequisito != null) {
+            
+            try {
+                //Crea paquete de documento
+                System.debug('Intenta crear el paquete de documento FAD');
+                WrapperFAD.paqueteDocumento nuevoPaquete = creaDocumentoFAD(NumeroArroba, Folio, TipoServicio, appReqItem, LeyendaDocumento, contentVersionDoc);
+                //crea firmas      
+                Map<String, WrapperFAD.firmaDocumento> mapRolCtoFirma = new Map<String, WrapperFAD.firmaDocumento>();
+                for(String rol : mapaRolesxCon.keySet()){
+                    if(rolesRelated.contains(rol)){
+                        System.debug('Rol: '+rol);
+                    	for(ADM_Configuracion_firma__c configFirma: mapaRolXconfigFirmas.get(rol)){
+                            WrapperFAD.firmaDocumento firmDoc = nuevaFirma(contactMap, mapaRolesxCon, rol, 
+                                mapaRolesxConfigFirm.get(rol), configFirma);
+
+                            String key = rol + String.valueOf(firmDoc.Id_Contacto);
+                            String keyTutor = ROL_TUTOR + String.valueOf(firmDoc.Id_Contacto);
+                            String keyPadre = ROL_PADRE + String.valueOf(firmDoc.Id_Contacto);
+                            String keyMadre = ROL_MADRE + String.valueOf(firmDoc.Id_Contacto);
+                            if (key.equals(keyTutor) || key.equals(keyPadre) || key.equals(keyMadre)) {
+                                
+                                WrapperFAD.firmaDocumento firmDocMap;
+                                if (mapRolCtoFirma.containsKey(keyTutor)) {
+                                    firmDocMap = mapRolCtoFirma.get(keyTutor);
+                                }
+
+                                if (mapRolCtoFirma.containsKey(keyPadre)) {
+                                    firmDocMap = firmDocMap = mapRolCtoFirma.get(keyPadre);
+                                }
+
+                                if (mapRolCtoFirma.containsKey(keyMadre)) {
+                                    firmDocMap = firmDocMap = mapRolCtoFirma.get(keyMadre);
+                                }
+
+                                if (firmDocMap == null) {
+                                    mapRolCtoFirma.put(key, firmDoc);
+                                    firmasDocumento.add(firmDoc);
+                                } else {
+                                    if (firmDocMap.Pagina_Firma == firmDoc.Pagina_Firma 
+                                        && firmDocMap.Posicion_X1_Firma != firmDoc.Posicion_X1_Firma  
+                                        && firmDocMap.Posicion_X2_Firma != firmDoc.Posicion_X2_Firma 
+                                        && firmDocMap.Posicion_Y1_Firma != firmDoc.Posicion_Y1_Firma 
+                                        && firmDocMap.Posicion_Y2_Firma != firmDoc.Posicion_Y2_Firma) {
+                                        
+                                        mapRolCtoFirma.put(key, firmDoc);
+                                        firmasDocumento.add(firmDoc);
+                                    } else if (firmDocMap.Pagina_Firma != firmDoc.Pagina_Firma 
+                                        && firmDocMap.Posicion_X1_Firma != firmDoc.Posicion_X1_Firma  
+                                        && firmDocMap.Posicion_X2_Firma != firmDoc.Posicion_X2_Firma 
+                                        && firmDocMap.Posicion_Y1_Firma != firmDoc.Posicion_Y1_Firma 
+                                        && firmDocMap.Posicion_Y2_Firma != firmDoc.Posicion_Y2_Firma) {
+                                        
+                                        mapRolCtoFirma.put(key, firmDoc);
+                                        firmasDocumento.add(firmDoc);
+                                    }
+                                }
+                                
+                            } else {
+                                firmasDocumento.add(firmDoc);
+                            }
+                            /* firmasDocumento.add(nuevaFirma(contactMap, mapaRolesxCon, rol, 
+                                mapaRolesxConfigFirm.get(rol), configFirma)); */
+                        }
+                    }
+                }
+                try{
+                    Queueable_WS_FAD callFAD = new Queueable_WS_FAD(nuevoPaquete.ID_documento, idDocReq, firmasDocumento, firmasDocumentToUpdate, nuevoPaquete, TipoRequisito);
+                    Id jobId = system.enqueueJob(callFAD);
+                }
+                catch(Exception ex)
+                {
+                    //get the error
+                    String error = ''+ex.getMessage();
+                    //validate the error message to make it user friendly
+                    if(error == MSG_ERROR_LENGTH_EXCEEDS)
+                    {
+                        error = System.Label.El_archivo_del_documento_codificado_en_Base_64_es_muy_grande_El_tama_o_maximo;
+                        ATR_Log_Errores__c errorLog = new ATR_Log_Errores__c();
+                        errorLog.Tipo_Programa__c = TipoServicio;
+                        errorLog.Fecha_de_Creacion_Integracion__c = System.today();
+                        errorLog.Error_Text__c = ERROR_TEXT + ERROR_APEX_CLASS + error;
+                        errorLog.Message_Code__c = MSG_CODE;
+                        errorLog.Type__c = ex.getTypeName();
+                        errorLog.Numero_Arroba__c = NumeroArroba;
+                        insert errorLog;
+                        system.debug(':::errorFAD:::' + errorLog.Error_Text__c);
+                    }
+                    system.debug(':::errorFAD:::' + error);
+                }
+            }
+            catch(Exception ex)
+            {
+                ATR_Log_Errores__c errorLog = new ATR_Log_Errores__c();
+                errorLog.Tipo_Programa__c = TipoServicio;
+                errorLog.Fecha_de_Creacion_Integracion__c = System.today();
+                errorLog.Error_Text__c = ERROR_TEXT + ERROR_APEX_CLASS + ex.getMessage() + ERROR_LINE + ex.getLineNumber();
+                errorLog.Message_Code__c = MSG_CODE;
+                errorLog.Type__c = ex.getTypeName();
+                errorLog.Numero_Arroba__c = NumeroArroba;
+                insert errorLog;
+                system.debug(':::errorFAD:::' + errorLog.Error_Text__c);
+            } 
+        }else{
+            //Mensaje de error
+            String error = '';
+            if(mapaRolXconfigFirmas.isEmpty()){
+                error = error + NOT_FOUND_SETTINGS_SIGN;
+            }
+            if(contentVersionList.isEmpty()){
+                error = error + NOT_FOUND_FILE;
+            }
+            if(contactMap.isEmpty()){
+                error = error + NOT_FOUND_CONTACT;
+            }
+            if(banderaFirmantes == true){
+                error = error + PHONE_DUPLICATED;
+            }
+            ATR_Log_Errores__c errorLog = new ATR_Log_Errores__c();
+            errorLog.Tipo_Programa__c = TipoServicio;
+            errorLog.Fecha_de_Creacion_Integracion__c = System.today();
+            errorLog.Error_Text__c = ERROR_TEXT + ERROR_APEX_CLASS + error;
+            errorLog.Message_Code__c = MSG_CODE;
+            errorLog.Numero_Arroba__c = NumeroArroba;
+            errorLog.Type__c = ERROR_TYPE;
+            insert errorLog;
+            //Obtener el tipo de objeto
+            if(schemaAdm==docReq.getSObjectType()){
+                ADM_Documento_requisito_admision__c docReqAdm = (ADM_Documento_requisito_admision__c)docReq;
+                Queueable_WS_FAD callFAD = new Queueable_WS_FAD(error,docReqAdm);
+                Id jobId = system.enqueueJob(callFAD);
+            } 
+            //BECAS VALIDAR SI SE QUITA CODIGO *****
+            /* else if(schemaBeca==docReq.getSObjectType()){
+                ADM_Documento_requisito_beca__c docReqBeca = (ADM_Documento_requisito_beca__c)docReq;
+                Queueable_WS_FAD callFAD = new Queueable_WS_FAD(error,docReqBeca);
+                Id jobId = system.enqueueJob(callFAD);
+            } */
+        }
+
+        isFirstRunCreaetReq = false;
+    }
+    
+    public static WrapperFAD.paqueteDocumento creaDocumentoFAD(String NumeroArroba, String Folio, String TipoServicio, /*TODO validar EnrollmentrxRx__Application_Requirement_Item__c appReqItem*/AB_Tipo_Application_Material_Mapping__c appReqItem, 
+                                                    String LeyendaDocumento, ContentVersion contentVersionDoc){
+        WrapperFAD.paqueteDocumento nuevoPaquete = new WrapperFAD.paqueteDocumento();
+        System.debug('Crea Paquete de Documento FAD');                                         
+        nuevoPaquete.Leyenda_Aceptacion = String.isNotBlank(LeyendaDocumento) ? LeyendaDocumento : '';
+        nuevoPaquete.Arroba = NumeroArroba;
+        nuevoPaquete.TipoServicio = TipoServicio; 
+        /**TODO ajutar los campos faltantes (comentados) si se requieren */
+        nuevoPaquete.Vigencia = String.valueof(appReqItem.ADM_Vigencia_FAD__c);
+        nuevoPaquete.Tipo_Contrato = appReqItem.ADM_Tipo_contrato__c;
+        nuevoPaquete.ID_documento = contentVersionDoc.ContentDocumentId;
+        nuevoPaquete.Omitir_video_acuerdo = String.valueof(!appReqItem.ADM_Video_aceptacion__c);
+        nuevoPaquete.Firma_Web=String.valueof(appReqItem.ADM_Firma_Web__c);
+        nuevoPaquete.Name = appReqItem.ADM_Nombre_documento_FAD__c;
+        nuevoPaquete.Folio = Folio;                                        
+        nuevoPaquete.Pagina_Certificado = appReqItem.ADM_Pagina_certificado__c;
+        nuevoPaquete.Posicion_X1_Certificado = appReqItem.ADM_Posicion_X1__c;
+        nuevoPaquete.Posicion_X2_Certificado = appReqItem.ADM_Posicion_X2__c;
+        nuevoPaquete.Posicion_Y1_Certificado = appReqItem.ADM_Posicion_Y1__c;
+        nuevoPaquete.Posicion_Y2_Certificado = appReqItem.ADM_Posicion_Y2__c;
+        System.debug('nuevoPaquete :: '+nuevoPaquete);   
+        return nuevoPaquete;
+    }  
+    
+    public static WrapperFAD.firmaDocumento nuevaFirma(Map<Id,Contact> contactMap, Map<String,ID> mapaRolesxCon, String Rol, 
+                             						   configFirmante firmanteData, ADM_Configuracion_firma__c configFirma){
+        WrapperFAD.firmaDocumento nuevaFirma = new WrapperFAD.firmaDocumento();
+        ID firmanteID = mapaRolesxCon.get(Rol);
+        nuevaFirma.Id_Contacto = firmanteID;
+        nuevaFirma.Nombre = contactMap.get(firmanteID).Nombre_Completo__c;
+        nuevaFirma.Telefono = String.isNotBlank(contactMap.get(firmanteID).MobilePhone) 
+            ? contactMap.get(firmanteID).MobilePhone 
+            : contactMap.get(firmanteID).Phone;
+        nuevaFirma.Correo = contactMap.get(firmanteID).Email;
+        nuevaFirma.Orden = firmanteData.orden;   
+        nuevaFirma.Rol = Rol;
+        nuevaFirma.Leyenda_Aceptacion = String.isNotBlank(firmanteData.leyenda) ? firmanteData.leyenda : '';
+        nuevaFirma.Omitir_video_acuerdo = firmanteData.videoacuerdo;
+        nuevaFirma.Tipo_autenticacion = firmanteData.tipoAutenticacion;
+        nuevaFirma.Datos_autenticacion = (firmanteData.tipoAutenticacion.equals(SEC_CODE) 
+            && String.isNotBlank(firmanteData.datosAutenticacion)) ? firmanteData.datosAutenticacion : '';
+        nuevaFirma.Pagina_Firma = configFirma.ADM_Pagina__c;
+        nuevaFirma.Posicion_X1_Firma = configFirma.ADM_Posicion_X1__c;
+        nuevaFirma.Posicion_X2_Firma = configFirma.ADM_Posicion_X2__c;
+        nuevaFirma.Posicion_Y1_Firma = configFirma.ADM_Posicion_Y1__c;
+        nuevaFirma.Posicion_Y2_Firma = configFirma.ADM_Posicion_Y2__c;
+        System.debug('firma con rol '+ nuevaFirma.Rol +' :: '+nuevaFirma);
+        return nuevaFirma;
+    }
+
+    public static Boolean valiateKeyDuplicate(Map<Id, Contact> contactMap) {
+
+        Boolean isDuplicate = false;
+        
+        Map<String, String> mapCels = new Map<String, String>();
+        if (!contactMap.isEmpty()) {
+            for (Contact cto : contactMap.values()) {
+                if (String.isNotBlank(cto.MobilePhone)) {
+                    String key = cto.MobilePhone;
+                    if (mapCels.containsKey(key)) {
+                        String idCto = mapCels.get(key);
+                        if (!idCto.equals(cto.Id)) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    } else {
+                        mapCels.put(key, cto.Id);
+                    }
+                }
+            }
+        }
+
+        return isDuplicate;
+    }
+    
+    public class configFirmante{
+        public ID idConfigFirmante;
+        public ID contacto;
+        public String arroba;
+        public String rol;
+        public String orden;
+        public String videoacuerdo;
+        public String leyenda;
+        public String tipoAutenticacion;
+        public String datosAutenticacion;
+    } 
+}
