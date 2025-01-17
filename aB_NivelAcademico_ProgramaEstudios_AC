@@ -1,0 +1,1270 @@
+/**
+ * @description       :
+ * @author            : Israel Hernandez
+ * @email:            : israel.hernandez@valtech.com
+ * @class name:       :
+ * @tes class:        :
+ * @last modified on  : 10-02-2024
+ * @last modified by  : Ramon Hernandez
+ * Modifications Log
+ * Ver   Date         Author            Modification
+ * 1.0   09-10-2023   Israel Hernandez  Initial Version
+ **/
+import { LightningElement, wire, api, track } from "lwc";
+import { OmniscriptBaseMixin } from "omnistudio/omniscriptBaseMixin";
+import { getNamespaceDotNotation } from "omnistudio/omniscriptInternalUtils";
+import { OmniscriptActionCommonUtil } from "omnistudio/omniscriptActionUtils";
+//import pubsub from 'omnistudio/pubsub';
+
+import lbProfesionalPresencialTitle from "@salesforce/label/c.AB_Profesional_Presencial_Titulo";
+import lbProfesionalPresencialBody from "@salesforce/label/c.AB_Profesional_Presencial_Cuerpo";
+import lbProfesionalEjecutivoTitle from "@salesforce/label/c.AB_Profesional_Ejecutivo_Titulo";
+import lbProfesionalEjecutivoBody from "@salesforce/label/c.AB_Profesional_Ejecutivo_Cuerpo";
+import lbProfesionalAsociadoTitle from "@salesforce/label/c.AB_Profesional_Asociado_Titulo";
+import lbProfesionalAsociadoBody from "@salesforce/label/c.AB_Profesional_Asociado_Cuerpo";
+import lblMsgNoConvocatorias from "@salesforce/label/c.AB_Msg_No_Convocatorias";
+import lblUrlInfoConvocatorias from "@salesforce/label/c.AB_URL_Convocatorias";
+
+var ProgramaEstudios = new Object();
+var InputParameters = new Map();
+var recordParameters = new Map();
+var NivelAcademicoOptionsList = [];
+var campusOptionsList = [];
+var programaOptionsList = [];
+var periodoOptionsList = [];
+var convocatoriaOptionsList = [];
+var NivelAcademicoOptionsCopia;
+var campusOptionsCopia;
+var programaOptionsCopia;
+var periodoOptionsCopia;
+var convocatoriaOptionsCopia;
+var myData = {
+  AB_ProgramaEstudios: {
+    AB_RellenaInformacion: {
+      ProgramaAcademico: {
+        Campus: "",
+        Modalidad: "",
+        NivelAcademico: "",
+        Periodicidad: "",
+        Periodo: "",
+        Posgrado: "",
+        ProgramaAcademico: "",
+        Titulacion: "",
+        CuentaConIdea: "",
+        Convocatoria: ""
+      }
+    }
+  }
+};
+
+export default class AB_NivelAcademico_ProgramaEstudios_AC extends OmniscriptBaseMixin(
+  LightningElement
+) {
+  // Get Data Json
+  //console.log(this.omniJsonData);
+  // Update Data Json
+  // console.log(this.omniUpdateDataJson);
+  //@track jsonData;
+  @track loadParameters;
+  @track ValoresAcademicosGlobal;
+  @track NivelAcademicoOptions;
+  @track NivelAcademicoOptionsLoaded = false;
+  @track NivelAcademicoSelected = null;
+  @track posgradoOptions;
+  @track posgradoShow = false;
+  @track posgradoSelected = null;
+  @track modalidadOptions;
+  @track modalidadesShow = false;
+  @track modalidadesShowTest = true;
+  @track modalidadSelected = null;
+  @track ModalidadesPlan = null;
+  @track campusOptions;
+  @track campusDisabled = true;
+  @track campusSelected = null;
+  @track programaOptions;
+  @track programaDisabled = true;
+  @track programaSelected = null;
+  @track periodicidadOptions;
+  @track periodicidadDisabled = true;
+  @track periodicidadSelected = null;
+  @track periodoOptions;
+  @track periodoDisabled = true;
+  @track periodoSelected = null;
+  @track TitulacionOptions = null;
+  @track TitulacionOptionsSelected = null;
+  @track TituloMensaje = null;
+  @track CuerpoMensje = null;
+  @track OpcionesMensaje = null;
+  @track MensajeShow = false;
+  @track isShowModal = false;
+  @track applicationId;
+  @track valuePropuesta;
+  @track isShowConvocatoria = false;
+  @track convocatoriaDisabled = true;
+  @track convocatoriaSelected = null;
+  @track convocatoriaOptions;
+  @track isThereAnyConv = false;
+  @track msgNoConvocatorias = lblMsgNoConvocatorias;
+  @track urlInfoConvocatorias = lblUrlInfoConvocatorias;
+  _ns;
+
+  get optionsPropuestaC() {
+    return [
+      { label: "Si", value: "Si" },
+      { label: "No", value: "No" }
+    ];
+  }
+
+  showModalBox() {
+    this.isShowModal = true;
+  }
+
+  hideModalBox() {
+    this.isShowModal = false;
+  }
+
+  connectedCallback() {
+    //console.log('Json Data ::: ' + JSON.stringify(this.jsonData));
+    console.log("Entra a connected Callback Programa Estudios");
+    //console.log('Json Data ::: ' + JSON.stringify(this.omniJsonData));
+    console.log("ContextId ::: " + this.omniJsonData.ContextId);
+    this.applicationId = this.omniJsonData.ContextId;
+    this.omniApplyCallResp(myData);
+    this._ns = getNamespaceDotNotation();
+    recordParameters.set("Id", this.omniJsonData.ContextId);
+    this.FillAllPickList("AdmissionConnect", "getDataOpp", recordParameters);
+    this.FillPickList(
+      "AdmissionConnect",
+      "GetNivelAcademico",
+      "NivelesAcademicos",
+      1,
+      InputParameters
+    );
+    InputParameters.set("Posgrado", "false");
+  }
+
+  HandleNivelAcademicoChange(event) {
+    this.LimpiarPickLists(1);
+    if (event != null) {
+      this.NivelAcademicoSelected = event.detail.value;
+    }
+    ProgramaEstudios.NivelAcademico = this.NivelAcademicoSelected;
+    InputParameters.set("Nivel", this.NivelAcademicoSelected);
+    InputParameters.set("Posgrado", "false");
+    if (this.NivelAcademicoSelected == "Profesional Ejecutivo") {
+      InputParameters.set("Nivel", "Profesional");
+      ProgramaEstudios.NivelAcademico = "Profesional";
+    }
+    if (this.NivelAcademicoSelected == "Posgrado") {
+      InputParameters.set("Posgrado", "true");
+    }
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            NivelAcademico: ProgramaEstudios.NivelAcademico
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    console.log("InputParameters ::: " + [...InputParameters.entries()]);
+    this.FillPickList(
+      "AdmissionConnect",
+      "GetConvocatorias",
+      "Convocatorias",
+      8,
+      InputParameters
+    );
+    this.FillPosgrado();
+    this.FillTitulacionOptions();
+    this.ValidarModalidad();
+    this.ValidarPeridiocidad();
+    this.omniUpdateDataJson(ProgramaEstudios);
+  }
+
+  HandleModalidadChange(event) {
+    if (event != null) {
+      this.modalidadSelected = event.detail.value;
+    }
+    console.log("Option selected with value: " + this.modalidadSelected);
+    this.LimpiarPickLists(3);
+    this.ValidarPeridiocidad();
+    ProgramaEstudios.Modalidad = this.modalidadSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Modalidad: this.modalidadSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+  }
+
+  HandleCampusChange(event) {
+    this.LimpiarPickLists(2);
+    if (event != null) {
+      this.campusSelected = event.detail.value;
+    }
+    console.log("Campus selected ::: " + this.campusSelected);
+    InputParameters.set("Campus", this.campusSelected);
+    ProgramaEstudios.Campus = this.campusSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Campus: this.campusSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    console.log("validacion parametros");
+    console.log(InputParameters);
+    this.ValidateProgramaAcademico();
+  }
+
+  HandlePeriodicidadChange(event) {
+    this.LimpiarPickLists(5);
+    var periodicidadS;
+    if (event != null) {
+      periodicidadS = event.detail.value;
+    } else {
+      periodicidadS = recordParameters.get("Modalidad");
+    }
+    this.periodicidadSelected = periodicidadS;
+    console.log("Periodicidad selected ::: " + periodicidadS);
+    InputParameters.set("Modalidad", periodicidadS);
+    ProgramaEstudios.Periodicidad = periodicidadS;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Periodicidad: periodicidadS
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    console.log(InputParameters);
+    this.FillPickList(
+      "AdmissionConnect",
+      "GetCampus",
+      "Campus",
+      2,
+      InputParameters
+    );
+
+    // this.ValidateProgramaAcademico();
+  }
+
+  HandlePosgradoChange(event) {
+    console.log("HandlePosgradoChange ::: ");
+    this.LimpiarPickLists(4);
+    this.posgradoSelected = event.detail.value;
+    ProgramaEstudios.Posgrado = this.posgradoSelected;
+    InputParameters.set("Posgrado", this.posgradoSelected);
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Posgrado: this.posgradoSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    console.log("InputParameters ::: " + InputParameters);
+    this.FillPickList(
+      "AdmissionConnect",
+      "GetModalidadesPosgrado",
+      "ModalidadesPosgrado",
+      7,
+      InputParameters
+    );
+  }
+
+  HandleProgramaChange(event) {
+    if (event != null) {
+      this.programaSelected = event.detail.value;
+    }
+    console.log("Programa selected ::: " + this.programaSelected);
+    ProgramaEstudios.ProgramaAcademico = this.programaSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            ProgramaAcademico: this.programaSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    InputParameters.set("Programa", this.programaSelected);
+    this.FillPickList(
+      "AdmissionConnect",
+      "GetPeriodo",
+      "Periodos",
+      5,
+      InputParameters
+    );
+  }
+
+  HandlePeriodoChange(event) {
+    if (event != null) {
+      this.periodoSelected = event.detail.value;
+    }
+    console.log("Periodo selected ::: " + this.periodoSelected);
+    ProgramaEstudios.Periodo = this.periodoSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Periodo: this.periodoSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    InputParameters.set("Periodo", this.periodoSelected);
+  }
+
+  HandleOpcionesTituloChange(event) {
+    this.TitulacionOptionsSelected = event.detail.value;
+    console.log("Titulacion selected ::: " + this.TitulacionOptionsSelected);
+    ProgramaEstudios.Titulacion = this.TitulacionOptionsSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Titulacion: this.TitulacionOptionsSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+  }
+
+  HandleCheckConvocatoria(event) {
+    if (event != null) {
+      this.valuePropuesta = event.detail.value;
+    }
+    console.log("Convocatoria? ::: " + this.valuePropuesta);
+    if (this.valuePropuesta == "Si") {
+      this.isShowConvocatoria = true;
+      this.convocatoriaDisabled = false;
+    } else if (this.valuePropuesta == "No") {
+      this.convocatoriaDisabled = true;
+      this.isShowConvocatoria = false;
+    }
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            CuentaConIdea: this.valuePropuesta
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    //this.omniUpdateDataJson(ProgramaEstudios);
+  }
+
+  HandleConvocatoriaChange(event) {
+    if (event != null) {
+      this.convocatoriaSelected = event.detail.value;
+    }
+    console.log("Convocatoria selected ::: " + this.convocatoriaSelected);
+    ProgramaEstudios.Convocatoria = this.convocatoriaSelected;
+    //Llena data Json
+    myData = {
+      AB_ProgramaEstudios: {
+        AB_RellenaInformacion: {
+          ProgramaAcademico: {
+            Convocatoria: this.convocatoriaSelected
+          }
+        }
+      }
+    };
+    this.omniApplyCallResp(myData);
+    this.omniUpdateDataJson(ProgramaEstudios);
+    console.log(JSON.stringify(ProgramaEstudios));
+  }
+
+  async FillPickList(Class, Method, NivelPickList, PickList, Input) {
+    console.log(
+      "Enter FillPickList ::: " +
+        Class +
+        ", " +
+        Method +
+        ", " +
+        NivelPickList +
+        ", " +
+        PickList +
+        ", " +
+        [...Input.entries()]
+    );
+    function CallApexMethod(Class, Method, InputParam) {
+      return new Promise((resolve) => {
+        var _actionUC = new OmniscriptActionCommonUtil();
+
+        var obj = Object.fromEntries(InputParam);
+        var jsonString = JSON.stringify(obj);
+
+        console.log(jsonString);
+
+        const ClassData = {
+          input: jsonString,
+          sClassName: Class,
+          sMethodName: Method,
+          options: "{}"
+        };
+
+        _actionUC
+          .executeAction(ClassData, null, this, null, null)
+          .then((response) => {
+            console.log("Succes");
+            resolve(response);
+          })
+          .catch((error) => {
+            console.log("Error ::: " + error);
+            resolve(error);
+          });
+      });
+    }
+
+    async function asyncCall(NivelPickList, Input) {
+      var ValoresAcademicos, Opciones;
+      var opcionesPickList = [];
+
+      console.log("Class : " + Class);
+      console.log("NivelPickList : " + NivelPickList);
+      console.log("Input : " + [...Input.entries()]);
+      console.log("Input.size : " + Input.size);
+      for (const [key, value] of Input) {
+        console.log(key, "--->", value);
+      }
+      console.log("Method : " + Method);
+
+      const result = await CallApexMethod(Class, Method, Input);
+
+      console.log("CallApexMethod result ::: " + JSON.stringify(result.result));
+      ValoresAcademicos = result.result.ValoresAcademicos;
+
+      for (let key in ValoresAcademicos) {
+        if (key.toUpperCase() == NivelPickList.toUpperCase()) {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              opcionesPickList.push(item);
+            }
+          }
+          opcionesPickList.sort((a, b) => (a.label > b.label ? 1 : -1));
+          /*if(NivelPickList=='NivelesAcademicos'){
+                        NivelAcademicoOptionsCopia = opcionesPickList;
+                    }else if(NivelPickList=='Campus'){
+                        campusOptionsCopia = opcionesPickList;
+                    }*/
+        }
+      }
+      return opcionesPickList;
+    }
+
+    switch (PickList) {
+      case 1:
+        asyncCall(NivelPickList, Input).then((val) => {
+          this.NivelAcademicoOptions = val;
+        });
+        break;
+      case 2:
+        asyncCall(NivelPickList, Input).then((val) => {
+          this.campusOptions = val;
+          this.campusDisabled = false;
+        });
+        break;
+      case 3:
+        asyncCall(NivelPickList, Input).then((val) => {
+          this.posgradoOptions = val;
+          this.posgradoShow = true;
+        });
+        break;
+      case 4:
+        asyncCall(NivelPickList, Input).then((val) => {
+          this.programaOptions = val;
+          this.programaDisabled = false;
+        });
+        break;
+      case 5:
+        asyncCall(NivelPickList, Input).then((val) => {
+          this.periodoOptions = val;
+          this.periodoDisabled = false;
+        });
+        break;
+      case 6:
+        asyncCall(NivelPickList, Input).then((val) => {
+          console.log("Opciones titulo : " + [...Input.entries()]);
+          this.TitulacionOptions = val;
+          this.posgradoShow = true;
+        });
+        break;
+      case 7:
+        asyncCall(NivelPickList, Input).then((val) => {
+          console.log("Modalidades ::: " + JSON.stringify(val));
+          console.log("Modalidades.length ::: " + val.length);
+          if (val.length != 0) {
+            this.modalidadesShow = true;
+            this.modalidadOptions = val;
+          } else {
+            this.modalidadesShow = false;
+            this.modalidadOptions = null;
+          }
+        });
+        break;
+      case 8:
+        asyncCall(NivelPickList, Input).then((val) => {
+          console.log("Convocatorias ::: " + JSON.stringify(val));
+          this.convocatoriaOptions = val;
+          if (this.convocatoriaOptions.length > 0) {
+            this.isThereAnyConv = true;
+          } else {
+            this.isThereAnyConv = false;
+          }
+        });
+        break;
+    }
+  }
+
+  async FillAllPickList(Class, Method, Input) {
+    console.log(
+      "Enter FillAllPickList ::: " + Class + ", " + Method + ", " + Input
+    );
+    function CallApexMethod(Class, Method, InputParam) {
+      return new Promise((resolve) => {
+        var _actionUC = new OmniscriptActionCommonUtil();
+
+        var obj = Object.fromEntries(InputParam);
+        var jsonString = JSON.stringify(obj);
+
+        console.log(jsonString);
+
+        const ClassData = {
+          input: jsonString,
+          sClassName: Class,
+          sMethodName: Method,
+          options: "{}"
+        };
+
+        _actionUC
+          .executeAction(ClassData, null, this, null, null)
+          .then((response) => {
+            console.log("Succes");
+            resolve(response);
+          })
+          .catch((error) => {
+            console.log("Error ::: " + error);
+            resolve(error);
+          });
+      });
+    }
+
+    async function asyncCall(Input) {
+      var ValoresAcademicos, Opciones;
+      var opcionesPickList = [];
+      var opcionesNivAcadPickList = [];
+      var opcionesCampusPickList = [];
+      var opcionesProgramaPickList = [];
+      var opcionesPeriodoPickList = [];
+      var opcionesConvocatoriaPickList = [];
+
+      console.log("Class : " + Class);
+      console.log("Input : " + Input);
+      console.log("Method : " + Method);
+
+      const result = await CallApexMethod(Class, Method, Input);
+
+      console.log("CallApexMethod result ::: " + JSON.stringify(result.result));
+      ValoresAcademicos = result.result.ValoresAcademicos;
+
+      for (let key in ValoresAcademicos) {
+        if (key == "SelectedData") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              recordParameters.set(
+                Opciones[keyVA].label,
+                Opciones[keyVA].value
+              );
+            }
+          }
+        }
+        if (key == "NivelesAcademicos") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              NivelAcademicoOptionsList.push(Opciones[keyVA].value);
+              opcionesNivAcadPickList.push(item);
+            }
+          }
+          opcionesNivAcadPickList.sort((a, b) => (a.label > b.label ? 1 : -1));
+          NivelAcademicoOptionsCopia = opcionesNivAcadPickList;
+        }
+        if (key == "Campus") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              campusOptionsList.push(Opciones[keyVA].value);
+              opcionesCampusPickList.push(item);
+            }
+          }
+          opcionesCampusPickList.sort((a, b) => (a.label > b.label ? 1 : -1));
+          campusOptionsCopia = opcionesCampusPickList;
+        }
+        if (key == "ProgramasAcademicos") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              programaOptionsList.push(Opciones[keyVA].value);
+              opcionesProgramaPickList.push(item);
+            }
+          }
+          opcionesProgramaPickList.sort((a, b) => (a.label > b.label ? 1 : -1));
+          programaOptionsCopia = opcionesProgramaPickList;
+        }
+        if (key == "Periodos") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              periodoOptionsList.push(Opciones[keyVA].value);
+              opcionesPeriodoPickList.push(item);
+            }
+          }
+          opcionesPeriodoPickList.sort((a, b) => (a.label > b.label ? 1 : -1));
+          periodoOptionsCopia = opcionesPeriodoPickList;
+        }
+        if (key == "Convocatorias") {
+          Opciones = ValoresAcademicos[key];
+          for (let keyVA in Opciones) {
+            if (
+              Opciones[keyVA].value != undefined &&
+              Opciones[keyVA].label != undefined
+            ) {
+              var item = {
+                label: Opciones[keyVA].label,
+                value: Opciones[keyVA].value
+              };
+              convocatoriaOptionsList.push(Opciones[keyVA].value);
+              opcionesConvocatoriaPickList.push(item);
+            }
+          }
+          opcionesConvocatoriaPickList.sort((a, b) =>
+            a.label > b.label ? 1 : -1
+          );
+          convocatoriaOptionsCopia = opcionesConvocatoriaPickList;
+          console.log(
+            "opcionesConvocatoriaPickList :: " + opcionesConvocatoriaPickList
+          );
+        }
+      }
+    }
+
+    asyncCall(Input).then((val) => {
+      this.NivelAcademicoOptions = NivelAcademicoOptionsCopia;
+      this.campusOptions = campusOptionsCopia;
+      this.programaOptions = programaOptionsCopia;
+      this.periodoOptions = periodoOptionsCopia;
+      this.convocatoriaOptions = convocatoriaOptionsCopia;
+      this.prellenaDatosNivelAcad();
+      this.prellenaDatosConvocatoria();
+    });
+  }
+
+  prellenaDatosNivelAcad() {
+    //llena mapas
+    if (recordParameters.size > 1) {
+      //Set NivelAcademico
+      //valida que existe el nivel
+      if (
+        NivelAcademicoOptionsList.includes(
+          recordParameters.get("NivelAcademico")
+        )
+      ) {
+        console.log("Se encontro el nivel academico");
+        this.NivelAcademicoSelected = recordParameters.get("NivelAcademico");
+        const NivelAcademicoCombobox =
+          this.template.querySelector(".NivelAcademico");
+        if (NivelAcademicoCombobox) {
+          NivelAcademicoCombobox.value = this.NivelAcademicoSelected;
+        }
+        this.HandleNivelAcademicoChange(null);
+
+        this.prellenaDatosFormato();
+      }
+    }
+  }
+
+  prellenaDatosFormato() {
+    console.log("Opciones Formato/modalidad ::: " + this.modalidadOptions);
+    if (
+      this.modalidadOptions != null &&
+      this.NivelAcademicoSelected != "Profesional" &&
+      this.NivelAcademicoSelected != "Preparatoria"
+    ) {
+      this.modalidadSelected = recordParameters.get("Modalidad");
+      this.HandleModalidadChange(null);
+      this.prellenaDatosPeriodicidad();
+    } else {
+      this.prellenaDatosPeriodicidad();
+    }
+  }
+
+  prellenaDatosConvocatoria() {
+    console.log("Opciones convocatoria :: " + this.convocatoriaOptions);
+
+    this.valuePropuesta = recordParameters.get("CheckConvocatoria");
+    if (this.valuePropuesta == "Si") {
+      this.isShowConvocatoria = true;
+      this.convocatoriaDisabled = false;
+      setTimeout(() => {
+        this.prellenaDatosConvocatoria2();
+      }, 1000);
+    }
+    this.HandleCheckConvocatoria(null);
+  }
+
+  prellenaDatosConvocatoria2() {
+    console.log("Entra a modificar la picklist de convocatoria");
+    const ConvocatoriaCombobox = this.template.querySelector(".Convocatorias");
+    console.log("ConvocatoriaCombobox :: " + ConvocatoriaCombobox);
+    if (ConvocatoriaCombobox) {
+      console.log(
+        "ConvocatoriaCombobox.value :: " + recordParameters.get("Convocatoria")
+      );
+      ConvocatoriaCombobox.value = recordParameters.get("Convocatoria");
+    }
+    this.HandleConvocatoriaChange(null);
+  }
+
+  prellenaDatosPeriodicidad() {
+    console.log("Opciones periodicidad :: " + this.periodicidadOptions);
+    const PeriodicidadCombobox = this.template.querySelector(".Periodicidad");
+    if (PeriodicidadCombobox) {
+      PeriodicidadCombobox.value = recordParameters.get("Modalidad");
+    }
+    this.HandlePeriodicidadChange(null);
+    this.prellenaDatosCampus();
+  }
+
+  prellenaDatosCampus() {
+    //Set Campus
+    //valida que existe el campus
+    console.log("campusOptionsList size ::: " + campusOptionsList.size);
+    console.log("Opciones Campus ::: " + this.campusOptions);
+    if (campusOptionsList.includes(recordParameters.get("Campus"))) {
+      this.campusSelected = recordParameters.get("Campus");
+      const CampusCombobox = this.template.querySelector(".Campus");
+      if (CampusCombobox) {
+        CampusCombobox.value = this.campusSelected;
+      }
+      this.HandleCampusChange(null);
+      this.prellenaDatosPrograma();
+    }
+  }
+
+  prellenaDatosPrograma() {
+    //Set Programa academico
+    //valida que existe el programa
+    console.log("programaOptionsList size ::: " + programaOptionsList.size);
+    if (
+      programaOptionsList.includes(recordParameters.get("ProgramaAcademico"))
+    ) {
+      console.log("Opciones ProgramaAcademico ::: " + this.programaOptions);
+      this.programaSelected = recordParameters.get("ProgramaAcademico");
+      const ProgramaCombobox =
+        this.template.querySelector(".ProgramaAcademico");
+      if (ProgramaCombobox) {
+        ProgramaCombobox.value = this.programaSelected;
+      }
+      this.HandleProgramaChange(null);
+      this.prellenaDatosPeriodo();
+    }
+  }
+
+  prellenaDatosPeriodo() {
+    //Set Periodo
+    //valida que existe el periodo
+    console.log("periodoOptionsList size ::: " + periodoOptionsList.size);
+    if (periodoOptionsList.includes(recordParameters.get("Periodo"))) {
+      console.log("Opciones Periodo ::: " + this.periodoOptions);
+      this.periodoSelected = recordParameters.get("Periodo");
+      const PeriodoCombobox = this.template.querySelector("Periodo");
+      if (PeriodoCombobox) {
+        PeriodoCombobox.value = this.periodoSelected;
+      }
+      this.HandlePeriodoChange(null);
+    }
+  }
+
+  FillPeriodicidad(Caso) {
+    var Options = [];
+    switch (Caso) {
+      case 1:
+        Options = [{ label: "Semestral", value: "Semestral" }];
+        this.periodicidadSelected = "Semestral";
+        break;
+      case 2:
+        Options = [{ label: "Connect", value: "Connect" }];
+        this.periodicidadSelected = "Connect";
+        break;
+      case 3:
+        Options = [{ label: "En línea", value: "En linea" }];
+        this.periodicidadSelected = "En linea";
+        break;
+      case 4:
+        Options = [
+          { label: "Semestral ", value: "Semestral" },
+          { label: "Tetramestral", value: "Tetramestral" }
+        ];
+        break;
+      case 5:
+        Options = [{ label: "Tetramestral", value: "Tetramestral" }];
+        this.periodicidadSelected = "Tetramestral";
+        break;
+      case 7:
+        Options = [{ label: "Autodirigido", value: "Autodirigido" }];
+        this.periodicidadSelected = "Autodirigido";
+        break;
+    }
+
+    if (this.periodicidadSelected != null) {
+      this.LimpiarPickLists(2);
+      InputParameters.set("Modalidad", this.periodicidadSelected);
+      ProgramaEstudios.Periodicidad = this.periodicidadSelected;
+      //Objeto de Json Omniscript
+      myData = {
+        AB_ProgramaEstudios: {
+          AB_RellenaInformacion: {
+            ProgramaAcademico: {
+              Periodicidad: this.periodicidadSelected
+            }
+          }
+        }
+      };
+      this.omniApplyCallResp(myData);
+      this.omniUpdateDataJson(ProgramaEstudios);
+      this.FillPickList(
+        "AdmissionConnect",
+        "GetCampus",
+        "Campus",
+        2,
+        InputParameters
+      );
+      this.ValidateProgramaAcademico();
+    }
+
+    this.periodicidadDisabled = false;
+    this.periodicidadOptions = Options;
+  }
+
+  FillPosgrado() {
+    console.log("Enter to FillPosgrado");
+    if (this.NivelAcademicoSelected == "Posgrado") {
+      this.posgradoShow = true;
+      this.FillPickList(
+        "AdmissionConnect",
+        "GetPosgrado",
+        "Posgrados",
+        3,
+        InputParameters
+      );
+    }
+  }
+
+  FillTitulacionOptions() {
+    if (this.NivelAcademicoSelected == "Posgrado") {
+      this.posgradoShow = true;
+      this.FillPickList(
+        "AdmissionConnect",
+        "GetOpcionesTitulo",
+        "OpcionesTitulo",
+        6,
+        InputParameters
+      );
+    }
+  }
+
+  ValidarPeridiocidad() {
+    // Caso Profesional
+    if (this.NivelAcademicoSelected != undefined) {
+      if (this.NivelAcademicoSelected == "Profesional") {
+        console.log("Periodicidad Profesional");
+        this.FillPeriodicidad(1);
+        ProgramaEstudios.Modalidad = "Presencial";
+      }
+      if (this.NivelAcademicoSelected == "Posgrado") {
+        console.log("Periocidad Posgrado");
+        if (this.modalidadSelected == "Presencial") {
+          this.FillPeriodicidad(5);
+        } else if (this.modalidadSelected == "Connect") {
+          this.FillPeriodicidad(2);
+        } else if (this.modalidadSelected == "En linea") {
+          this.FillPeriodicidad(3);
+        }
+      }
+      if (this.NivelAcademicoSelected == "Profesional Ejecutivo") {
+        console.log("Periocidad Profesional Ejecutiva");
+        if (this.modalidadSelected == "Presencial") {
+          this.FillPeriodicidad(5);
+        } else if (this.modalidadSelected == "Connect") {
+          this.FillPeriodicidad(2);
+        } else if (this.modalidadSelected == "En línea") {
+          this.FillPeriodicidad(3);
+        }
+      }
+      if (this.NivelAcademicoSelected == "Profesional Asociado") {
+        console.log("Periocidad Profesional Asociado");
+        if (this.modalidadSelected == "Autodirigido") {
+          this.FillPeriodicidad(7);
+        } else if (this.modalidadSelected == "Connect") {
+          this.FillPeriodicidad(2);
+        }
+      }
+      if (this.NivelAcademicoSelected == "Preparatoria") {
+        console.log("Periocidad Preparatoria");
+        this.FillPeriodicidad(4);
+      }
+    }
+
+    this.omniUpdateDataJson(ProgramaEstudios);
+  }
+
+  ValidarModalidad() {
+    this.modalidadesShow = false;
+    this.MensajeShow = false;
+    console.log("Validar Modalidad : " + this.NivelAcademicoSelected);
+    switch (this.NivelAcademicoSelected) {
+      case "Profesional":
+        this.modalidadesShow = false;
+        this.MensajeShow = true;
+        this.FillMensajes(
+          lbProfesionalPresencialTitle,
+          lbProfesionalPresencialBody,
+          ""
+        );
+        break;
+      case "Profesional Ejecutivo":
+        this.modalidadesShow = true;
+        this.MensajeShow = true;
+        this.FillMensajes(
+          lbProfesionalEjecutivoTitle,
+          lbProfesionalEjecutivoBody,
+          ""
+        );
+        this.modalidadOptions = [
+          { label: "Presencial", value: "Presencial" },
+          { label: "Connect", value: "Connect" },
+          { label: "En línea", value: "En línea" }
+        ];
+        break;
+      case "Profesional Asociado":
+        this.modalidadesShow = true;
+        this.MensajeShow = true;
+        this.FillMensajes(
+          lbProfesionalAsociadoTitle,
+          lbProfesionalAsociadoBody,
+          ""
+        );
+        this.modalidadOptions = [
+          { label: "Autodirigido ", value: "Autodirigido" },
+          { label: "Connect ", value: "Connect" }
+        ];
+        break;
+      case "Posgrado":
+        this.modalidadOptions = null;
+        this.modalidadesShow = false;
+        //this.modalidadesShow = true;
+        //this.modalidadOptions = [{label: 'Presencial', value: 'Presencial'}, {label: 'Connect', value: 'Connect'}, {label: 'En línea', value: 'En línea'}];
+        break;
+      default:
+        this.modalidadOptions = null;
+        this.modalidadesShow = false;
+        break;
+    }
+    //console.log('modalidadOptions :: '+ [...this.modalidadOptions.entries()]);
+    console.log("modalidadesShow :: " + this.modalidadesShow);
+  }
+
+  FillMensajes(Titulo, Mensaje, Opciones) {
+    this.TituloMensaje = Titulo;
+    this.CuerpoMensje = Mensaje;
+    this.OpcionesMensaje = Opciones;
+  }
+
+  LimpiarPickLists(Reset) {
+    console.log("Limpiar Picklist ::: " + Reset);
+    switch (Reset) {
+      case 1:
+        console.log(
+          "Limpiar Input values ::: " + [...InputParameters.entries()]
+        );
+        InputParameters = new Map();
+        console.log("Input Map ::: " + [...InputParameters.entries()]);
+        //Campos
+        this.posgradoOptions = null;
+        this.posgradoShow = false;
+        this.posgradoSelected = null;
+        this.modalidadOptions = null;
+        this.modalidadesShow = false;
+        this.modalidadSelected = null;
+        this.campusOptions = null;
+        this.campusOptionsLoaded = false;
+        this.campusSelected = null;
+
+        this.TitulacionOptions = null;
+        this.TitulacionOptionsSelected = null;
+        this.programaOptions = null;
+        this.programaOptionsLoaded = false;
+        this.programaSelected = null;
+
+        this.periodicidadOptions = null;
+        this.periodicidadDisabled = false;
+        this.periodicidadSelected = null;
+        this.periodoOptions = null;
+        this.periodoOptionsLoaded = false;
+        this.periodoSelected = null;
+
+        //Objeto de Json Omniscript
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Campus: "",
+                Modalidad: "",
+                Periodicidad: "",
+                Periodo: "",
+                Posgrado: "",
+                ProgramaAcademico: "",
+                Titulacion: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.Modalidad = null;
+        ProgramaEstudios.Campus = null;
+        ProgramaEstudios.Periodicidad = null;
+        ProgramaEstudios.Posgrado = null;
+        ProgramaEstudios.ProgramaAcademico = null;
+        ProgramaEstudios.Periodo = null;
+        ProgramaEstudios.Titulacion = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+
+        break;
+      case 2:
+        this.programaOptions = null;
+        this.programaOptionsLoaded = false;
+        this.programaSelected = null;
+        this.periodoOptions = null;
+        this.periodoOptionsLoaded = false;
+        this.periodoSelected = null;
+
+        //Objeto de Json Omniscript
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Periodo: "",
+                ProgramaAcademico: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.ProgramaAcademico = null;
+        ProgramaEstudios.Periodo = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+
+        break;
+      case 3:
+        this.periodicidadOptions = null;
+        this.periodicidadDisabled = true;
+        this.periodicidadSelected = null;
+        //
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Periodo: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.Periodo = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+        break;
+      case 4:
+        this.campusSelected = null;
+        this.periodicidadSelected = null;
+        this.programaSelected = null;
+        this.periodoSelected = null;
+
+        this.TitulacionOptionsSelected = null;
+        this.modalidadSelected = null;
+        //Objeto de Json Omniscript
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Campus: "",
+                Modalidad: "",
+                Periodicidad: "",
+                Periodo: "",
+                Posgrado: "",
+                ProgramaAcademico: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.Modalidad = null;
+        ProgramaEstudios.Campus = null;
+        ProgramaEstudios.Periodicidad = null;
+        ProgramaEstudios.Posgrado = null;
+        ProgramaEstudios.ProgramaAcademico = null;
+        ProgramaEstudios.Periodo = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+        break;
+      case 5:
+        //Campos
+        this.modalidadOptions = null;
+        this.modalidadesShow = false;
+        this.modalidadSelected = null;
+        this.campusOptions = null;
+        this.campusOptionsLoaded = false;
+        this.campusSelected = null;
+
+        //this.TitulacionOptions = null;
+        //this.TitulacionOptionsSelected = null;
+        this.programaOptions = null;
+        this.programaOptionsLoaded = false;
+        this.programaSelected = null;
+
+        this.periodoOptions = null;
+        this.periodoOptionsLoaded = false;
+        this.periodoSelected = null;
+
+        //Objeto de Json Omniscript
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Campus: "",
+                Modalidad: "",
+                Periodo: "",
+                Posgrado: "",
+                ProgramaAcademico: "",
+                Titulacion: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.Modalidad = null;
+        ProgramaEstudios.Campus = null;
+        ProgramaEstudios.Posgrado = null;
+        ProgramaEstudios.ProgramaAcademico = null;
+        ProgramaEstudios.Periodo = null;
+        ProgramaEstudios.Titulacion = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+
+        break;
+      case 6:
+        this.convocatoriaSelected = null;
+        //Objeto de Json Omniscript
+        myData = {
+          AB_ProgramaEstudios: {
+            AB_RellenaInformacion: {
+              ProgramaAcademico: {
+                Convocatoria: "",
+                CuentaConIdea: ""
+              }
+            }
+          }
+        };
+        this.omniApplyCallResp(myData);
+        ProgramaEstudios.Convocatoria = null;
+        this.omniUpdateDataJson(ProgramaEstudios);
+        break;
+    }
+  }
+
+  ValidateProgramaAcademico() {
+    if (
+      this.campusSelected != undefined &&
+      this.periodicidadSelected != undefined
+    ) {
+      this.FillPickList(
+        "AdmissionConnect",
+        "GetProgramaAcademico",
+        "ProgramasAcademicos",
+        4,
+        InputParameters
+      );
+    }
+  }
+}
