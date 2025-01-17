@@ -1,0 +1,43 @@
+/*****************************************************************************************************************
+Version : 1.0
+Created Date : 2021-11-24
+Class Name : ADM_FirmaDocumentoAdmision_TDTM
+Test Class : ADM_FirmaDocumentoAdmision_TDTM_Test
+Description: 
+*-----------------------------------------------------------------------------------------------------------------
+*          Developer                    Date                    Description                    Changes
+*-----------------------------------------------------------------------------------------------------------------
+*       Israel Hernández              2021-11-24              Original Version               ------------
+*-----------------------------------------------------------------------------------------------------------------
+*****************************************************************************************************************/
+global class ADM_FirmaDocumentoAdmision_TDTM extends hed.TDTM_Runnable{
+    
+    private static Boolean firstRun = true;
+    
+    global override hed.TDTM_Runnable.DmlWrapper run(List<SObject> newlist, List<SObject> oldlist, 
+        hed.TDTM_Runnable.Action triggerAction, Schema.DescribeSObjectResult objResult) {
+        
+        hed.TDTM_Runnable.DmlWrapper dmlWrapper = new hed.TDTM_Runnable.DmlWrapper();
+        
+        List<ADM_Firma_documento_admision__c> oldFirmaDocumentoAdm = (oldlist == null) 
+            ? new List<ADM_Firma_documento_admision__c>() 
+            : (List<ADM_Firma_documento_admision__c>) oldlist;
+        Map<Id, ADM_Firma_documento_admision__c> oldFirmaDocumentoAdmMap = 
+            new Map<Id, ADM_Firma_documento_admision__c>(oldFirmaDocumentoAdm);
+        List<ADM_Firma_documento_admision__c> newFirmaDocumentoAdm = (List<ADM_Firma_documento_admision__c>) newlist;
+
+        if (firstRun == true && (triggerAction == hed.TDTM_Runnable.Action.BeforeInsert)) {
+            firstRun = false;
+            System.debug('ADM_FirmaDocumentoAdmision_TDTM -> BeforeInsert');
+            TDTM_FirmaDocumentoAdmisionHandler.handleBeforeInsert(newFirmaDocumentoAdm);
+        }
+
+        if (firstRun == true && (triggerAction == hed.TDTM_Runnable.Action.BeforeUpdate)) {
+            firstRun = false;
+            System.debug('ADM_FirmaDocumentoAdmision_TDTM -> BeforeUpdate');
+            TDTM_FirmaDocumentoAdmisionHandler.handleBeforeUpdate(newFirmaDocumentoAdm, oldFirmaDocumentoAdmMap);
+        }
+        
+        return dmlWrapper;
+    }
+}
